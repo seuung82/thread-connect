@@ -222,7 +222,7 @@ for(const b of document.querySelectorAll('[data-tc-tab]'))b.onclick=()=>setTab(b
   const eyebrow=document.createElement('div');eyebrow.className='tc-match-eyebrow';eyebrow.textContent='💜 IT’S A MATCH';celebration.append(eyebrow);
   const title=document.createElement('h3');title.textContent='축하해! 서로 마음이 통했어 ✨';celebration.append(title);
   const description=document.createElement('p');description.textContent='서로 호감이 일치한 스레더 '+mutualMatches.size+'명 · 이제 Threads에서 인사를 건네 봐.';celebration.append(description);
-  const visible=directoryRows.filter(x=>mutualMatches.has(x.id));
+  const visible=directoryRows.filter(x=>mutualMatches.has(x.id)&&!window.tcSafety?.isBlocked(x.id));
   for(const p of visible){const card=document.createElement('div');card.className='tc-match-person';const name=document.createElement('strong');name.textContent='💜 '+(p.display_name||'회원')+' · @'+(p.threads_handle||'');card.append(name);const info=document.createElement('p');info.textContent=[p.region_sido,p.region_sigungu,p.mbti].filter(Boolean).join(' · ');card.append(info);if(p.threads_handle){const a=document.createElement('a');a.href='https://www.threads.net/@'+encodeURIComponent(p.threads_handle);a.target='_blank';a.rel='noopener noreferrer';a.textContent='Threads에서 인사하기 ↗';card.append(a)}celebration.append(card)}
   if(mutualMatches.size>visible.length){const note=document.createElement('p');note.textContent='일부 매칭 상대는 현재 회원 목록 조회 범위 밖에 있어.';celebration.append(note)}
   root.append(celebration);
@@ -230,7 +230,7 @@ for(const b of document.querySelectorAll('[data-tc-tab]'))b.onclick=()=>setTab(b
 function drawDirectory(){
  const root=by('auth-directory-result'),q=value('auth-directory-search').toLowerCase();
  root.replaceChildren();
- const matches=directoryRows.filter(p=>(!tcRegionSido.value||p.region_sido===tcRegionSido.value)&&(!tcRegionSigungu.value||p.region_sigungu===tcRegionSigungu.value)&&(!tcRegionDong.value||p.region_eupmyeondong===tcRegionDong.value)&&(selectedGender==='전체'||(genderAvailable&&safeText(p.gender).trim().toLowerCase()===({'남성':'male','여성':'female'}[selectedGender]||selectedGender)))&&(selectedAge==='전체'||(Number.isInteger(Number(p.birth_year))&&Number(p.birth_year)>=1900&&Number(p.birth_year)<=new Date().getFullYear()&&(()=>{const age=new Date().getFullYear()-Number(p.birth_year);return selectedAge==='50'?age>=50:age>=Number(selectedAge)&&age<Number(selectedAge)+10})()))&&[p.display_name,p.threads_handle,p.region_sido,p.region_sigungu,...(p.interests||[])].some(s=>safeText(s).toLowerCase().includes(q)));
+ const matches=directoryRows.filter(p=>!window.tcSafety?.isBlocked(p.id)&&(!tcRegionSido.value||p.region_sido===tcRegionSido.value)&&(!tcRegionSigungu.value||p.region_sigungu===tcRegionSigungu.value)&&(!tcRegionDong.value||p.region_eupmyeondong===tcRegionDong.value)&&(selectedGender==='전체'||(genderAvailable&&safeText(p.gender).trim().toLowerCase()===({'남성':'male','여성':'female'}[selectedGender]||selectedGender)))&&(selectedAge==='전체'||(Number.isInteger(Number(p.birth_year))&&Number(p.birth_year)>=1900&&Number(p.birth_year)<=new Date().getFullYear()&&(()=>{const age=new Date().getFullYear()-Number(p.birth_year);return selectedAge==='50'?age>=50:age>=Number(selectedAge)&&age<Number(selectedAge)+10})()))&&[p.display_name,p.threads_handle,p.region_sido,p.region_sigungu,...(p.interests||[])].some(s=>safeText(s).toLowerCase().includes(q)));
  const genderNote=by('tc-gender-note');genderNote.textContent=!genderAvailable?'현재 회원 목록에 성별 정보가 제공되지 않아. 전체 목록은 볼 수 있지만 남성·여성 필터를 사용하려면 DB 설정이 필요해.':selectedGender==='전체'?'성별 미설정 회원도 포함해 표시해.':'';
  const count=document.createElement('p');count.textContent='검색 결과 '+matches.length+'명';root.append(count);
  for(const p of matches){
@@ -244,6 +244,7 @@ function drawDirectory(){
   const actions=document.createElement('div');actions.className='tc-directory-actions';
   if(currentUserId&&p.id!==currentUserId){const btn=document.createElement('button');btn.type='button';const sent=sentLikes.has(p.id);btn.textContent=sent?'호감 취소':'♡ 호감 보내기';btn.className=sent?'muted':'';btn.onclick=()=>toggleLike(p.id,btn);actions.append(btn)}
   if(p.threads_handle){const link=document.createElement('a');link.href='https://www.threads.net/@'+encodeURIComponent(p.threads_handle);link.target='_blank';link.rel='noopener noreferrer';link.textContent=isMatch?'💌 Threads에서 인연 이어가기 ↗':'Threads 프로필 열기 ↗';actions.append(link)}
+  if(currentUserId&&p.id!==currentUserId&&window.tcSafety){const safety=document.createElement('div');safety.className='tc-safety-actions';const report=document.createElement('button');report.textContent='🚨 신고';report.type='button';report.onclick=()=>window.tcSafety.report(p.id,p.display_name);const block=document.createElement('button');block.textContent='🚫 차단';block.type='button';block.onclick=()=>window.tcSafety.block(p.id,p.display_name);safety.append(report,block);actions.append(safety)}
   if(actions.childNodes.length)card.append(actions);
   root.append(card)}
 }
@@ -267,6 +268,7 @@ async function refreshLikes(){
 }
 async function toggleLike(id,button){
  if(!client||!currentUserId||id===currentUserId)return;
+ if(window.tcSafety?.isBlocked(id)){msg('차단한 회원에게는 호감을 보낼 수 없어.');return}
  button.disabled=true;
  const already=sentLikes.has(id);
  const result=already?await client.from('member_likes').delete().eq('sender_id',currentUserId).eq('recipient_id',id):await client.from('member_likes').insert({sender_id:currentUserId,recipient_id:id});
@@ -278,7 +280,7 @@ by('auth-directory-search').addEventListener('input',drawDirectory);
 by('auth-directory-refresh').onclick=refreshDirectory;
 
 function friendly(e){return e&&e.message?e.message:String(e)}
-async function sync(){if(!client)return;try{const {data,error}=await client.auth.getUser();if(error)throw error;const u=data.user;currentUserId=u?.id||null;if(!u){sentLikes=new Set();mutualMatches=new Set();directoryRows=[];by('tc-matches').replaceChildren();by('auth-directory-result').replaceChildren()}by('auth-logged-out').hidden=!!u;by('auth-logged-in').hidden=!u;if(u){by('auth-user').textContent='로그인: '+u.email;await loadProfile(u.id);await refreshDirectory()}}catch(e){msg(friendly(e))}}
+async function sync(){if(!client)return;try{const {data,error}=await client.auth.getUser();if(error)throw error;const u=data.user;currentUserId=u?.id||null;if(!u){sentLikes=new Set();mutualMatches=new Set();directoryRows=[];by('tc-matches').replaceChildren();by('auth-directory-result').replaceChildren()}by('auth-logged-out').hidden=!!u;by('auth-logged-in').hidden=!u;if(u){by('auth-user').textContent='로그인: '+u.email;await loadProfile(u.id);await window.tcSafety?.refresh();await refreshDirectory()}}catch(e){msg(friendly(e))}}
 async function loadProfile(id){const {data,error}=await client.from('profiles').select('*').eq('id',id).maybeSingle();if(error){msg('프로필 불러오기: '+friendly(error));return}if(!data)return;const pairs={'auth-name':'display_name','auth-handle':'threads_handle','auth-birth':'birth_year','auth-gender':'gender','auth-mbti':'mbti','auth-sido':'region_sido','auth-sigungu':'region_sigungu','auth-dong':'region_eupmyeondong','auth-bio':'bio'};for(const [id,col] of Object.entries(pairs))by(id).value=data[col]??'';by('auth-interests').value=(data.interests||[]).join(', ');by('auth-show-dong').checked=!!data.show_neighborhood}
 by('auth-signup').onclick=async()=>{if(!client)return;msg('가입 요청 중...');const {error}=await client.auth.signUp({email:value('auth-email'),password:by('auth-password').value,options:{emailRedirectTo:location.origin+location.pathname}});msg(error?friendly(error):'가입 요청을 보냈어. 이메일에서 인증 링크를 확인해 줘.')};
 by('auth-login').onclick=async()=>{if(!client)return;const {error}=await client.auth.signInWithPassword({email:value('auth-email'),password:by('auth-password').value});msg(error?friendly(error):'로그인했어.');if(!error)await sync()};
@@ -449,6 +451,8 @@ async function loadChatProfiles(ids){
 function chatProfile(id){return profileCache.get(id)||{id}}
 function openChatProfile(id){
  const p=chatProfile(id),overlay=document.getElementById('tc-chat-profile-overlay');
+ document.getElementById('tc-chat-profile-card').dataset.safetyUserId=id;
+ const safetyActions=document.getElementById('tc-chat-safety-actions');if(safetyActions)safetyActions.hidden=(id===user?.id);
  document.getElementById('tc-profile-name').textContent=p.display_name||'회원';
  document.getElementById('tc-profile-handle').textContent=p.threads_handle?'@'+p.threads_handle:'Threads 계정 미등록';
  document.getElementById('tc-profile-bio').textContent=p.bio||'등록된 자기소개가 없어.';
@@ -510,4 +514,48 @@ document.querySelector('[data-tc-tab="meetup"]').addEventListener('click',()=>{i
  save.onclick=async()=>{const f=file.files?.[0];if(!f){status.textContent='먼저 사진을 선택해 줘.';return}if(!['image/jpeg','image/png','image/webp'].includes(f.type)||f.size>2*1024*1024){status.textContent='JPG/PNG/WEBP 2MB 이하만 가능해.';return}save.disabled=true;status.textContent='업로드 중...';try{const s=await session();if(!s)throw Error('로그인이 필요해.');const ext=({'image/jpeg':'jpg','image/png':'png','image/webp':'webp'})[f.type];const path=s.user.id+'/'+crypto.randomUUID()+'.'+ext;const r=await fetch(project+'/storage/v1/object/'+photoBucket+'/'+path,{method:'POST',headers:{apikey:key,Authorization:'Bearer '+s.token,'Content-Type':f.type,'x-upsert':'false'},body:f});if(!r.ok){const d=await r.json().catch(()=>({}));throw Error(d.message||d.error||'업로드 실패 ('+r.status+')')}if(currentPath){await api('chat_profile_photos?user_id=eq.'+s.user.id,'PATCH',{avatar_path:path})}else{await api('chat_profile_photos','POST',{user_id:s.user.id,avatar_path:path})}const old=currentPath;currentPath=path;show(path);profileCache.clear();file.value='';status.textContent='사진 저장 완료!';if(old&&old!==path){await fetch(project+'/storage/v1/object/'+photoBucket+'/'+old,{method:'DELETE',headers:{apikey:key,Authorization:'Bearer '+s.token}}).catch(()=>{})}}catch(e){status.textContent='저장 실패: '+err(e)}finally{save.disabled=false}};
  remove.onclick=async()=>{if(!confirm('프로필 사진을 삭제할까?'))return;remove.disabled=true;try{const s=await session();if(!s)throw Error('로그인이 필요해.');await api('chat_profile_photos?user_id=eq.'+s.user.id,'DELETE');const old=currentPath;currentPath=null;show(null);profileCache.clear();status.textContent='사진 삭제 완료';if(old)await fetch(project+'/storage/v1/object/'+photoBucket+'/'+old,{method:'DELETE',headers:{apikey:key,Authorization:'Bearer '+s.token}}).catch(()=>{})}catch(e){status.textContent='삭제 실패: '+err(e)}finally{remove.disabled=false}};
 })();
+})();</script><style id="tc-safety-style">
+#auth-app .tc-safety-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+#auth-app .tc-safety-actions button{background:#2c2531;color:#e6d3ec;border:1px solid #68516f;border-radius:10px;padding:9px 13px;font-size:12px;margin:0}
+#tc-safety-modal[hidden]{display:none!important}#tc-safety-modal{position:fixed;inset:0;background:#000c;z-index:100005;display:flex;align-items:center;justify-content:center;padding:18px}
+#tc-safety-modal .inner{width:min(420px,100%);background:#211b29;border:1px solid #745a82;border-radius:20px;padding:22px;color:white}
+#tc-safety-modal textarea,#tc-safety-modal select{width:100%;margin:9px 0 15px;background:#30273a;color:white;border:1px solid #70587c;border-radius:10px;padding:12px}
+#tc-safety-modal button,#tc-safety-settings button{background:#3c3047;color:#f6e9ff;border:1px solid #735b80;border-radius:11px;padding:10px 13px;margin:4px;font-size:12px}
+#tc-safety-settings{border-top:1px solid #44374c;margin-top:25px;padding-top:20px}#tc-safety-settings .entry{border-bottom:1px solid #3b3141;padding:12px 0;font-size:13px}
+</style>
+<script id="tc-safety-feature">(function(){'use strict';
+const url='https://foucfjyzkfbmdwxwgthl.supabase.co',key='sb_publishable_LxicXlsguNiijTuVx_RdYA_KLmr_V3m';
+const db=window.supabase.createClient(url,key);let me=null,blocked=new Set(),admin=false;
+const $=id=>document.getElementById(id);
+const say=t=>{const m=$('auth-message');if(m)m.textContent=t;else alert(t)};
+const safeName=n=>String(n||'회원');
+const box=document.createElement('div');box.id='tc-safety-modal';box.hidden=true;box.innerHTML='<div class="inner" role="dialog" aria-modal="true" aria-label="회원 신고"><h3>🚨 회원 신고</h3><p id="tc-safety-target" style="color:#dbc6e5"></p><label>신고 사유</label><select id="tc-safety-reason"><option value="부적절한 언행">부적절한 언행</option><option value="광고·도배">광고·도배</option><option value="사칭">사칭</option><option value="괴롭힘">괴롭힘</option><option value="기타">기타</option></select><label>상세 내용 (선택)</label><textarea id="tc-safety-details" maxlength="1000" placeholder="신고 내용을 적어 주세요"></textarea><div style="display:flex;justify-content:flex-end;gap:8px"><button type="button" id="tc-safety-cancel">취소</button><button type="button" id="tc-safety-submit">신고 접수</button></div><p id="tc-safety-error" role="status"></p></div>';
+document.body.append(box);let reportTarget=null;
+$('tc-safety-cancel').onclick=()=>box.hidden=true;
+box.addEventListener('click',e=>{if(e.target===box)box.hidden=true});
+$('tc-safety-submit').onclick=async()=>{if(!me||!reportTarget)return;const btn=$('tc-safety-submit');btn.disabled=true;try{const {error}=await db.from('member_reports').insert({reporter_id:me,reported_id:reportTarget,reason:$('tc-safety-reason').value,details:$('tc-safety-details').value.trim(),status:'pending'});if(error)throw error;box.hidden=true;say('신고가 접수됐어. 운영자가 확인할게.')}catch(e){$('tc-safety-error').textContent='접수 실패: '+e.message}finally{btn.disabled=false}};
+async function refresh(){const {data:{user},error}=await db.auth.getUser();if(error||!user){me=null;blocked.clear();admin=false;return}me=user.id;
+const [b,a]=await Promise.all([db.from('member_blocks').select('blocked_id').eq('blocker_id',me),db.rpc('tc_is_site_admin')]);
+if(b.error)console.warn('차단 목록 조회 실패',b.error);blocked=new Set((b.data||[]).map(x=>x.blocked_id));
+admin=!a.error&&a.data===true;await drawSettings();}
+function isBlocked(id){return blocked.has(id)}
+function report(id,name){if(!me){say('로그인이 필요해.');return}if(id===me)return;reportTarget=id;$('tc-safety-target').textContent=safeName(name)+' 회원을 신고할게.';$('tc-safety-details').value='';$('tc-safety-error').textContent='';box.hidden=false}
+async function block(id,name){if(!me||id===me)return;if(!confirm(safeName(name)+' 회원을 차단할까? 소개팅 목록에서 숨겨져.'))return;
+const {error}=await db.from('member_blocks').insert({blocker_id:me,blocked_id:id});if(error&&error.code!=='23505'){say('차단 실패: '+error.message);return}blocked.add(id);say('차단했어.');await drawSettings();$('auth-directory-refresh')?.click();}
+async function unblock(id){if(!me)return;const {error}=await db.from('member_blocks').delete().eq('blocker_id',me).eq('blocked_id',id);if(error){say('차단 해제 실패: '+error.message);return}blocked.delete(id);await drawSettings();$('auth-directory-refresh')?.click();say('차단을 해제했어.')}
+const settings=document.createElement('div');settings.id='tc-safety-settings';settings.innerHTML='<h3>🛡️ 신고·차단 관리</h3><div id="tc-safety-blocks">차단 회원 없음</div><div id="tc-safety-admin" hidden><h3>👑 운영자 신고 관리</h3><div id="tc-safety-reports"></div></div>';
+$('tc-profile')?.append(settings);
+async function drawSettings(){if(!me)return;const root=$('tc-safety-blocks');root.replaceChildren();const ids=[...blocked];if(!ids.length)root.textContent='차단한 회원이 없어.';
+let names=new Map();if(ids.length){const {data}=await db.from('member_directory').select('id,display_name').in('id',ids);names=new Map((data||[]).map(x=>[x.id,x.display_name]));}
+for(const id of ids){const row=document.createElement('div');row.className='entry';const label=document.createElement('span');label.textContent=safeName(names.get(id))+' ';const btn=document.createElement('button');btn.textContent='차단 해제';btn.onclick=()=>unblock(id);row.append(label,btn);root.append(row)}
+$('tc-safety-admin').hidden=!admin;if(admin)await drawReports();}
+async function drawReports(){const root=$('tc-safety-reports');root.textContent='신고 목록 불러오는 중...';const {data,error}=await db.from('member_reports').select('id,reporter_id,reported_id,reason,details,status,created_at').order('created_at',{ascending:false}).limit(100);if(error){root.textContent='신고 조회 실패: '+error.message;return}root.replaceChildren();if(!data.length)root.textContent='접수된 신고가 없어.';
+for(const r of data){const row=document.createElement('div');row.className='entry';const title=document.createElement('strong');title.textContent=r.reason+' · '+r.status;const info=document.createElement('p');info.style.overflowWrap='anywhere';info.textContent='신고 대상: '+r.reported_id+' / 신고자: '+r.reporter_id+'\n'+(r.details||'')+'\n'+new Date(r.created_at).toLocaleString('ko-KR');row.append(title,info);for(const [status,label] of [['reviewed','처리 완료'],['dismissed','기각'],['pending','대기']]){const b=document.createElement('button');b.textContent=label;b.disabled=r.status===status;b.onclick=async()=>{const {error}=await db.from('member_reports').update({status}).eq('id',r.id);if(error)say('처리 실패: '+error.message);else await drawReports()};row.append(b)}root.append(row)}}
+window.tcSafety={refresh,isBlocked,report,block,unblock};
+// 채팅방 회원 미니 프로필에도 신고·차단 버튼을 표시한다.
+const observer=new MutationObserver(()=>{const card=$('tc-chat-profile-card');if(!card||card.querySelector('.tc-safety-actions'))return;const actions=document.createElement('div');actions.className='tc-safety-actions';actions.id='tc-chat-safety-actions';const r=document.createElement('button');r.textContent='🚨 신고';const b=document.createElement('button');b.textContent='🚫 차단';r.onclick=()=>{const id=card.dataset.safetyUserId;if(id)report(id,$('tc-profile-name')?.textContent)};b.onclick=()=>{const id=card.dataset.safetyUserId;if(id)block(id,$('tc-profile-name')?.textContent)};actions.append(r,b);card.append(actions)});
+observer.observe(document.body,{childList:true,subtree:true});
+// 채팅 프로필 열기 함수의 대상 ID는 원본 스크립트에서 설정한다.
+db.auth.onAuthStateChange(()=>{setTimeout(()=>refresh().catch(console.error),250)});
+refresh().catch(console.error);
 })();</script></body></html>
