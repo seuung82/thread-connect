@@ -287,11 +287,28 @@ by('auth-logout').onclick=async()=>{if(!client)return;const b=by('auth-logout');
 by('auth-profile-form').onsubmit=async(e)=>{e.preventDefault();if(!client)return;const {data:{user},error:authError}=await client.auth.getUser();if(authError||!user){msg('먼저 로그인해 줘.');return}const birth=value('auth-birth');const payload={id:user.id,display_name:value('auth-name'),threads_handle:value('auth-handle').replace(/^@/,''),birth_year:birth?Number(birth):null,gender:value('auth-gender')||null,mbti:value('auth-mbti')||null,region_sido:value('auth-sido')||null,region_sigungu:value('auth-sigungu')||null,region_eupmyeondong:value('auth-dong')||null,interests:value('auth-interests').split(',').map(x=>x.trim()).filter(Boolean).slice(0,20),bio:value('auth-bio')||null,show_neighborhood:by('auth-show-dong').checked,updated_at:new Date().toISOString()};const saveButton=by('auth-profile-form').querySelector('button[type=submit]');if(saveButton)saveButton.disabled=true;try{const {error}=await client.from('profiles').upsert(payload,{onConflict:'id'});if(error){msg('저장 실패: '+friendly(error));return}const {data:verified,error:verifyError}=await client.from('profiles').select('region_eupmyeondong,show_neighborhood').eq('id',user.id).single();if(verifyError){msg('프로필은 저장됐지만 동네 공개 설정 확인에 실패했어: '+friendly(verifyError));return}const savedDong=(verified.region_eupmyeondong||'').trim();const requestedDong=(payload.region_eupmyeondong||'').trim();if(verified.show_neighborhood!==payload.show_neighborhood||savedDong!==requestedDong){msg('저장값 확인 필요: 동네 또는 공개 동의가 요청한 값과 달라. 화면을 새로고침한 뒤 다시 확인해 줘.');return}by('auth-show-dong').checked=verified.show_neighborhood;msg(verified.show_neighborhood?'프로필 저장 완료! 동네 공개 동의도 정상 저장됐어.':'프로필 저장 완료! 동네는 비공개 상태야.');await refreshDirectory();setTab('dating')}finally{if(saveButton)saveButton.disabled=false}};
 if(client){client.auth.onAuthStateChange(()=>{setTimeout(sync,0)});sync();}
 
-})();</script><style id="tc-chat-style">#auth-app .tc-chat-create{padding:16px;margin:14px 0;border:1px solid #493850;border-radius:16px;background:#1c1922}#auth-app .tc-chat-room{margin:12px 0;padding:18px;border:1px solid #41344b;border-radius:18px;background:#1b1821}#auth-app .tc-chat-room strong{font-size:17px}#auth-app .tc-chat-room p{font-size:13px;margin:10px 0}#auth-app .tc-chat-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}#auth-app .tc-chat-actions button{font-size:12px;padding:10px 12px}#auth-app .tc-chat-applicant{border-top:1px solid #403347;padding:10px 0}#auth-app .tc-chat-messages{min-height:250px;max-height:52vh;overflow:auto;padding:12px;background:#121016;border:1px solid #403347;border-radius:16px;margin:14px 0}#auth-app .tc-chat-bubble{max-width:90%;margin:10px 0;padding:11px 13px;background:#292330;border-radius:14px;overflow-wrap:anywhere}#auth-app .tc-chat-bubble.mine{background:#49315c;margin-left:auto}#auth-app .tc-chat-bubble small{display:block;color:#bdb0c6;margin-bottom:5px}#auth-app .tc-chat-send{display:flex;gap:8px;align-items:center}#auth-app .tc-chat-send input{margin:0;min-width:0;flex:1}#auth-app .tc-chat-send button{margin:0;flex:none}</style><script id="tc-live-chatrooms">(function(){
+})();</script><style id="tc-chat-style">#auth-app .tc-chat-create{padding:16px;margin:14px 0;border:1px solid #493850;border-radius:16px;background:#1c1922}#auth-app .tc-chat-room{margin:12px 0;padding:18px;border:1px solid #41344b;border-radius:18px;background:#1b1821}#auth-app .tc-chat-room strong{font-size:17px}#auth-app .tc-chat-room p{font-size:13px;margin:10px 0}#auth-app .tc-chat-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}#auth-app .tc-chat-actions button{font-size:12px;padding:10px 12px}#auth-app .tc-chat-applicant{border-top:1px solid #403347;padding:10px 0}#auth-app .tc-chat-messages{min-height:250px;max-height:52vh;overflow:auto;padding:12px;background:#121016;border:1px solid #403347;border-radius:16px;margin:14px 0}#auth-app .tc-chat-bubble{max-width:90%;margin:10px 0;padding:11px 13px;background:#292330;border-radius:14px;overflow-wrap:anywhere}#auth-app .tc-chat-bubble.mine{background:#49315c;margin-left:auto}#auth-app .tc-chat-bubble small{display:block;color:#bdb0c6;margin-bottom:5px}#auth-app .tc-chat-send{display:flex;gap:8px;align-items:center}#auth-app .tc-chat-send input{margin:0;min-width:0;flex:1}#auth-app .tc-chat-send button{margin:0;flex:none}</style><style id="tc-chat-profile-v1">
+#auth-app .tc-chat-author{display:flex;align-items:center;gap:9px;border:0;background:transparent;color:#f7eaff;padding:0;margin:0 0 8px;text-align:left;cursor:pointer}
+#auth-app .tc-chat-author .tc-chat-avatar{width:35px;height:35px;flex:none;border-radius:50%;background:#584268;display:grid;place-items:center;overflow:hidden;font-size:19px}
+#auth-app .tc-chat-author .tc-chat-avatar img{width:100%;height:100%;object-fit:cover}
+#auth-app .tc-chat-author .tc-chat-author-name{font-size:13px;font-weight:750;display:block}
+#auth-app .tc-chat-author .tc-chat-author-handle{font-size:11px;color:#d6b4f0;display:block;margin-top:2px}
+#auth-app .tc-chat-bubble{max-width:96%}#auth-app .tc-chat-bubble.mine{max-width:90%}
+#tc-chat-profile-overlay[hidden]{display:none!important}
+#tc-chat-profile-overlay{position:fixed;inset:0;background:#000b;z-index:100001;display:flex;align-items:center;justify-content:center;padding:18px}
+#tc-chat-profile-card{width:min(390px,100%);background:#201a29;border:1px solid #795c8d;border-radius:22px;padding:22px;box-shadow:0 20px 60px #000a;color:white}
+#tc-chat-profile-card .tc-profile-avatar{width:78px;height:78px;border-radius:50%;background:#594268;display:grid;place-items:center;overflow:hidden;font-size:38px;margin:10px auto}
+#tc-chat-profile-card .tc-profile-avatar img{width:100%;height:100%;object-fit:cover}
+#tc-chat-profile-card h3,#tc-chat-profile-card p{text-align:center;overflow-wrap:anywhere}
+#tc-chat-profile-card .tc-profile-link{display:block;text-align:center;background:#ead6ff;color:#26182e;border-radius:12px;padding:13px;text-decoration:none;font-weight:800;margin-top:16px}
+#tc-chat-profile-card .tc-profile-link[hidden]{display:none}
+#tc-chat-profile-card .tc-profile-close{float:right;background:#403349;color:#fff;border:0;border-radius:10px;padding:8px 12px}
+</style><script id="tc-live-chatrooms">(function(){
 'use strict';
 const el=id=>document.getElementById(id),list=el('tc-chat-room-list'),view=el('tc-chat-view');
 const project='https://foucfjyzkfbmdwxwgthl.supabase.co',key='sb_publishable_LxicXlsguNiijTuVx_RdYA_KLmr_V3m';
 let user=null,active=null,interval=null,loading=false;
+const profileCache=new Map();
 // 기존 로그인 화면과 동일한 Supabase 인증 저장소를 사용한다.
 // localStorage의 첫 번째 sb-* 토큰을 임의 선택하면 다른 계정으로 판별될 수 있다.
 const chatAuth=window.supabase.createClient(project,key);
@@ -323,7 +340,58 @@ async function decide(id,approve){if(!confirm(approve?'가입을 승인할까?':
 async function openRoom(room){
   if(room.host_id!==user.id){try{const rows=await api('chat_room_members?select=status&room_id=eq.'+encodeURIComponent(room.id)+'&user_id=eq.'+encodeURIComponent(user.id)+'&limit=1');if(rows[0]?.status!=='approved'){alert('방장 승인 후 채팅방에 입장할 수 있어.');await refresh();return}}catch(e){alert('입장 권한 확인 실패: '+err(e));return}}
   active=room;clearTimer();list.hidden=true;view.hidden=false;el('tc-chat-create-toggle').hidden=true;el('tc-chat-refresh').hidden=true;el('tc-chat-create-form').hidden=true;el('tc-chat-room-title').textContent='💬 '+room.title;el('tc-chat-room-info').textContent='방장 승인제 · 최대 30명 · 온라인 단톡방';el('tc-chat-messages').textContent='메시지를 불러오는 중...';await messages();interval=setInterval(()=>{if(active&&document.visibilityState==='visible'&&!el('tc-meetup').hidden)messages()},3500)}
-async function messages(){if(!active)return;const roomId=active.id;try{const rows=await api('chat_messages?select=id,room_id,sender_id,content,created_at&room_id=eq.'+encodeURIComponent(roomId)+'&order=created_at.asc&limit=200');if(!active||active.id!==roomId)return;const box=el('tc-chat-messages'),atBottom=box.scrollHeight-box.scrollTop-box.clientHeight<100;box.replaceChildren();if(!rows.length)box.append(node('p','첫 메시지를 남겨 봐!','tc-note'));for(const m of rows){const bubble=node('div',undefined,'tc-chat-bubble'+(m.sender_id===user.id?' mine':''));const when=new Date(m.created_at).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});bubble.append(node('small',(m.sender_id===user.id?'나':'회원 '+m.sender_id.slice(0,6))+' · '+when),node('div',m.content));box.append(bubble)}if(atBottom)box.scrollTop=box.scrollHeight;el('tc-chat-error').textContent=''}catch(e){el('tc-chat-error').textContent='메시지 조회 오류: '+err(e)}}
+// 회원 공개 프로필만 읽는다. 미등록 사진은 기본 아이콘으로 표시한다.
+async function loadChatProfiles(ids){
+ const missing=[...new Set(ids)].filter(id=>!profileCache.has(id));
+ if(!missing.length)return;
+ try{
+  const rows=await api('member_directory?select=id,display_name,threads_handle,bio&id=in.('+missing.map(encodeURIComponent).join(',')+')&limit=200');
+  for(const id of missing)profileCache.set(id,rows.find(r=>r.id===id)||{id});
+ }catch(e){for(const id of missing)profileCache.set(id,{id});}
+}
+function chatProfile(id){return profileCache.get(id)||{id}}
+function openChatProfile(id){
+ const p=chatProfile(id),overlay=document.getElementById('tc-chat-profile-overlay');
+ document.getElementById('tc-profile-name').textContent=p.display_name||'회원';
+ document.getElementById('tc-profile-handle').textContent=p.threads_handle?'@'+p.threads_handle:'Threads 계정 미등록';
+ document.getElementById('tc-profile-bio').textContent=p.bio||'등록된 자기소개가 없어.';
+ const link=document.getElementById('tc-profile-link');
+ const handle=String(p.threads_handle||'').replace(/^@/,'').trim();
+ if(/^[a-zA-Z0-9._]+$/.test(handle)){link.href='https://www.threads.net/@'+encodeURIComponent(handle);link.hidden=false}else{link.removeAttribute('href');link.hidden=true}
+ overlay.hidden=false;
+}
+function closeChatProfile(){document.getElementById('tc-chat-profile-overlay').hidden=true}
+(function installChatProfile(){
+ const overlay=node('div');overlay.id='tc-chat-profile-overlay';overlay.hidden=true;
+ const card=node('div');card.id='tc-chat-profile-card';card.setAttribute('role','dialog');card.setAttribute('aria-modal','true');card.setAttribute('aria-label','회원 프로필');
+ const close=btn('✕ 닫기',closeChatProfile);close.className='tc-profile-close';card.append(close);
+ card.append(node('div','👤','tc-profile-avatar'));
+ const name=node('h3');name.id='tc-profile-name';card.append(name);
+ const handle=node('p');handle.id='tc-profile-handle';card.append(handle);
+ const bio=node('p');bio.id='tc-profile-bio';card.append(bio);
+ const link=node('a','Threads 프로필 방문하기 ↗','tc-profile-link');link.id='tc-profile-link';link.target='_blank';link.rel='noopener noreferrer';card.append(link);
+ overlay.append(card);overlay.addEventListener('click',e=>{if(e.target===overlay)closeChatProfile()});document.body.append(overlay);
+ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!overlay.hidden)closeChatProfile()});
+})();
+async function messages(){if(!active)return;const roomId=active.id;try{
+ const rows=await api('chat_messages?select=id,room_id,sender_id,content,created_at&room_id=eq.'+encodeURIComponent(roomId)+'&order=created_at.asc&limit=200');
+ if(!active||active.id!==roomId)return;
+ await loadChatProfiles(rows.map(m=>m.sender_id));
+ if(!active||active.id!==roomId)return;
+ const box=el('tc-chat-messages'),atBottom=box.scrollHeight-box.scrollTop-box.clientHeight<100;
+ box.replaceChildren();if(!rows.length)box.append(node('p','첫 메시지를 남겨 봐!','tc-note'));
+ for(const m of rows){
+  const p=chatProfile(m.sender_id),bubble=node('div',undefined,'tc-chat-bubble'+(m.sender_id===user.id?' mine':''));
+  const author=node('button',undefined,'tc-chat-author');author.type='button';author.title='회원 프로필 보기';author.onclick=()=>openChatProfile(m.sender_id);
+  author.append(node('span','👤','tc-chat-avatar'));
+  const details=node('span');details.append(node('span',(p.display_name||'회원')+(m.sender_id===active.host_id?' 👑':'')+(m.sender_id===user.id?' (나)':''),'tc-chat-author-name'));
+  details.append(node('span',p.threads_handle?'@'+String(p.threads_handle).replace(/^@/,''):'프로필 보기 ↗','tc-chat-author-handle'));author.append(details);bubble.append(author);
+  bubble.append(node('div',m.content));
+  bubble.append(node('small',new Date(m.created_at).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})));
+  box.append(bubble)
+ }
+ if(atBottom)box.scrollTop=box.scrollHeight;el('tc-chat-error').textContent=''
+}catch(e){el('tc-chat-error').textContent='메시지 조회 오류: '+err(e)}}
 el('tc-chat-send-form').onsubmit=async e=>{e.preventDefault();if(!active)return;const input=el('tc-chat-message'),content=input.value.trim(),submit=e.currentTarget.querySelector('[type=submit]');if(!content)return;submit.disabled=true;try{await api('chat_messages','POST',{room_id:active.id,sender_id:user.id,content});input.value='';await messages()}catch(e){el('tc-chat-error').textContent='전송 실패: '+err(e)}finally{submit.disabled=false}};
 el('tc-chat-create-toggle').onclick=()=>{const f=el('tc-chat-create-form');f.hidden=!f.hidden};el('tc-chat-refresh').onclick=refresh;
 el('tc-chat-create-form').onsubmit=async e=>{e.preventDefault();const form=e.currentTarget,submit=form.querySelector('[type=submit]'),status=el('tc-chat-create-msg');submit.disabled=true;status.textContent='생성 중...';try{const s=await session();if(!s)throw Error('로그인이 필요해');const title=el('tc-chat-title').value.trim(),description=el('tc-chat-desc').value.trim();if(title.length<2||title.length>100)throw Error('방 제목은 2~100자로 입력해 줘');await api('chat_rooms','POST',{host_id:s.user.id,title,description,max_members:30,status:'open'});status.textContent='단톡방 생성 완료!';form.reset();form.hidden=true;await refresh()}catch(e){status.textContent='생성 실패: '+err(e)}finally{submit.disabled=false}};
