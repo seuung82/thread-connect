@@ -488,7 +488,8 @@ async function messages(){if(!active)return;const roomId=active.id;if(active.sta
   author.append(avatarNode(p.avatar_path,'tc-chat-avatar'));
   const details=node('span');details.append(node('span',(p.display_name||'회원')+(m.sender_id===active.host_id?' 👑':'')+(m.sender_id===user.id?' (나)':''),'tc-chat-author-name'));
   details.append(node('span',p.threads_handle?'@'+String(p.threads_handle).replace(/^@/,''):'프로필 보기 ↗','tc-chat-author-handle'));author.append(details);bubble.append(author);
-  bubble.append(node('div',m.content));
+  const isBlockedSender=m.sender_id!==user.id && !!window.tcSafety?.isBlocked(m.sender_id);
+  bubble.append(node('div',isBlockedSender?'🚫 차단한 회원의 메시지입니다':m.content));
   bubble.append(node('small',new Date(m.created_at).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})));
   box.append(bubble)
  }
