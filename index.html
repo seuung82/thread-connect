@@ -566,7 +566,7 @@ refresh().catch(console.error);
 const db=window.supabase.createClient('https://foucfjyzkfbmdwxwgthl.supabase.co','sb_publishable_LxicXlsguNiijTuVx_RdYA_KLmr_V3m');
 const $=id=>document.getElementById(id);let uid=null,isAdmin=false;
 const adminBox=document.createElement('div');adminBox.id='tc-suspension-admin';adminBox.hidden=true;
-adminBox.innerHTML='<h3>⛔ 운영자 회원 제재</h3><p style="font-size:12px;color:#c8b4d1">신고 대상의 회원 ID를 입력하거나 신고 목록에서 선택해 줘.</p><label class="tc-suspend-field">회원 검색 (이름 또는 Threads 아이디)<input id="tc-admin-member-keyword" placeholder="예: @testthread456" autocomplete="off"></label><button type="button" id="tc-admin-member-search">🔎 회원 검색</button><div id="tc-admin-member-results" class="tc-admin-member-results" role="status"></div><label class="tc-suspend-field">회원 ID (UUID)<input id="tc-suspend-user" placeholder="신고 대상 회원 ID" autocomplete="off"></label><label class="tc-suspend-field">제재 사유<textarea id="tc-suspend-reason" rows="2" maxlength="500" placeholder="제재 사유를 입력해 줘"></textarea></label><div><button type="button" id="tc-suspend-check">현재 상태 조회</button><button type="button" id="tc-suspend-week">7일 정지</button><button type="button" id="tc-suspend-forever">영구 정지</button><button type="button" id="tc-suspend-revoke">정지 해제</button></div><p class="tc-suspend-state" id="tc-suspend-result" role="status"></p>';
+adminBox.innerHTML='<h3>⛔ 운영자 회원 제재</h3><p style="font-size:12px;color:#c8b4d1">신고 대상의 회원 ID를 입력하거나 신고 목록에서 선택해 줘.</p><label class="tc-suspend-field">회원 검색 (이름 또는 Threads 아이디)<input id="tc-admin-member-keyword" placeholder="예: @testthread456" autocomplete="off"></label><button type="button" id="tc-admin-member-search">🔎 회원 검색</button><div id="tc-admin-member-results" class="tc-admin-member-results" role="status"></div><div id="tc-admin-list-section" style="margin:19px 0;padding:15px 0;border-top:1px solid #54425f"><h4 style="margin:0 0 10px">👥 전체 회원 관리</h4><div role="group" aria-label="회원 상태 필터"><button type="button" data-member-filter="all">전체</button><button type="button" data-member-filter="normal">정상</button><button type="button" data-member-filter="suspended">정지</button></div><p id="tc-admin-list-status" class="tc-suspend-state" role="status">필터 버튼을 누르면 회원 목록을 불러와.</p><div id="tc-admin-list-results" class="tc-admin-member-results"></div><p class="tc-suspend-state">최대 100명 표시 · 회원을 누르면 아래 제재 대상에 자동 입력돼.</p></div><label class="tc-suspend-field">회원 ID (UUID)<input id="tc-suspend-user" placeholder="신고 대상 회원 ID" autocomplete="off"></label><label class="tc-suspend-field">제재 사유<textarea id="tc-suspend-reason" rows="2" maxlength="500" placeholder="제재 사유를 입력해 줘"></textarea></label><div><button type="button" id="tc-suspend-check">현재 상태 조회</button><button type="button" id="tc-suspend-week">7일 정지</button><button type="button" id="tc-suspend-forever">영구 정지</button><button type="button" id="tc-suspend-revoke">정지 해제</button></div><p class="tc-suspend-state" id="tc-suspend-result" role="status"></p>';
 const notice=document.createElement('div');notice.id='tc-suspension-notice';notice.hidden=true;notice.setAttribute('role','status');
 function mount(){const parent=$('tc-safety-admin');if(parent&&!parent.contains(adminBox))parent.append(adminBox);const profile=$('tc-profile');if(profile&&!profile.contains(notice))profile.prepend(notice)}
 const out=t=>{const el=$('tc-suspend-result');if(el)el.textContent=t};
@@ -597,11 +597,39 @@ async function searchMembers(){
   }catch(e){area.textContent='검색 실패: '+e.message}
   finally{button.disabled=false}
 }
+let memberListFilter='all';
+async function loadMemberList(filter=memberListFilter){
+  if(!isAdmin)return;
+  memberListFilter=filter;
+  const area=$('tc-admin-list-results'),status=$('tc-admin-list-status');
+  area.replaceChildren();status.textContent='회원 목록 불러오는 중...';
+  adminBox.querySelectorAll('[data-member-filter]').forEach(b=>{b.disabled=true;b.setAttribute('aria-pressed',String(b.dataset.memberFilter===filter))});
+  try{
+    const {data,error}=await db.rpc('admin_list_members',{p_filter:filter});
+    if(error)throw error;
+    const members=data||[];
+    status.textContent=({all:'전체',normal:'정상',suspended:'정지'}[filter])+' 회원 '+members.length+'명'+(members.length===100?' (최대 100명까지만 표시)':'');
+    if(!members.length){area.textContent='해당하는 회원이 없어.';return}
+    for(const member of members){
+      const row=document.createElement('button');row.type='button';row.className='tc-admin-member-choice';
+      const name=document.createElement('strong');name.textContent=member.display_name||'이름 없음';
+      const info=document.createElement('span');info.textContent=(member.threads_handle||'스레드 아이디 없음')+(member.is_suspended?' · ⛔ 정지 중':' · 정상');
+      row.append(name,info);
+      row.onclick=()=>{
+        $('tc-suspend-user').value=member.member_id;
+        adminBox.querySelectorAll('.tc-admin-member-choice').forEach(el=>el.classList.remove('selected'));
+        row.classList.add('selected');out((member.display_name||'회원')+' 선택 완료. 아래에서 상태를 조회하거나 제재할 수 있어.');
+      };
+      area.append(row);
+    }
+  }catch(e){status.textContent='목록 조회 실패: '+e.message}
+  finally{adminBox.querySelectorAll('[data-member-filter]').forEach(b=>b.disabled=false)}
+}
 function selected(){const id=$('tc-suspend-user')?.value.trim()||'';if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))throw Error('올바른 회원 ID(UUID)를 입력해 줘.');return id}
 async function doCheck(){try{const id=selected();const r=await check(id);out(r?('현재 상태: '+(r.suspension_type==='permanent'?'영구 정지':'7일 정지')+'\n사유: '+r.reason+'\n시작: '+new Date(r.starts_at).toLocaleString('ko-KR')+(r.ends_at?'\n종료: '+new Date(r.ends_at).toLocaleString('ko-KR'):'')):'현재 이용 정지 없음')}catch(e){out('조회 실패: '+e.message)}}
-async function act(action){let id,reason='';try{id=selected();if(action!=='revoke'){reason=$('tc-suspend-reason').value.trim();if(!reason)throw Error('제재 사유를 입력해 줘.')}const label=action==='7days'?'7일 정지':action==='permanent'?'영구 정지':'정지 해제';if(!confirm(id+' 회원을 '+label+' 처리할까?'))return;const buttons=[...adminBox.querySelectorAll('button')];buttons.forEach(b=>b.disabled=true);try{const {data,error}=await db.rpc('manage_member_suspension',{p_user_id:id,p_action:action,p_reason:reason||null});if(error)throw error;out(data||'처리 완료');await doCheck();await updateNotice()}finally{buttons.forEach(b=>b.disabled=false)}}catch(e){out('처리 실패: '+e.message)}}
+async function act(action){let id,reason='';try{id=selected();if(action!=='revoke'){reason=$('tc-suspend-reason').value.trim();if(!reason)throw Error('제재 사유를 입력해 줘.')}const label=action==='7days'?'7일 정지':action==='permanent'?'영구 정지':'정지 해제';if(!confirm(id+' 회원을 '+label+' 처리할까?'))return;const buttons=[...adminBox.querySelectorAll('button')];buttons.forEach(b=>b.disabled=true);try{const {data,error}=await db.rpc('manage_member_suspension',{p_user_id:id,p_action:action,p_reason:reason||null});if(error)throw error;out(data||'처리 완료');await doCheck();await updateNotice();if($('tc-admin-list-results').children.length)await loadMemberList()}finally{buttons.forEach(b=>b.disabled=false)}}catch(e){out('처리 실패: '+e.message)}}
 async function refresh(){mount();const {data:{user}}=await db.auth.getUser();uid=user?.id||null;if(!uid){adminBox.hidden=true;notice.hidden=true;return}const {data,error}=await db.rpc('tc_is_site_admin');isAdmin=!error&&data===true;adminBox.hidden=!isAdmin;await updateNotice()}
-function init(){mount();$('tc-admin-member-search').onclick=searchMembers;$('tc-admin-member-keyword').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();searchMembers()}});$('tc-suspend-check').onclick=doCheck;$('tc-suspend-week').onclick=()=>act('7days');$('tc-suspend-forever').onclick=()=>act('permanent');$('tc-suspend-revoke').onclick=()=>act('revoke');
+function init(){mount();adminBox.querySelectorAll('[data-member-filter]').forEach(b=>b.onclick=()=>loadMemberList(b.dataset.memberFilter));$('tc-admin-member-search').onclick=searchMembers;$('tc-admin-member-keyword').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();searchMembers()}});$('tc-suspend-check').onclick=doCheck;$('tc-suspend-week').onclick=()=>act('7days');$('tc-suspend-forever').onclick=()=>act('permanent');$('tc-suspend-revoke').onclick=()=>act('revoke');
 // 신고 목록의 대상 UUID를 클릭하면 제재 대상 입력란에 복사
 const reports=$('tc-safety-reports');if(reports){reports.addEventListener('click',e=>{if(!isAdmin)return;const item=e.target.closest('.entry');if(!item)return;const match=item.textContent.match(/신고 대상:\s*([0-9a-f-]{36})/i);if(match){$('tc-suspend-user').value=match[1];out('신고 대상 회원을 선택했어. 제재 사유를 입력해 줘.')}})}
 db.auth.onAuthStateChange(()=>setTimeout(()=>refresh().catch(console.error),300));refresh().catch(console.error)}
