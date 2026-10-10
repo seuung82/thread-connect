@@ -675,11 +675,27 @@ async function render(){list.textContent='모임 불러오는 중...';try{
  if(isHost){detail(d,'👑 내가 만든 모임');const pending=apps.filter(a=>a.meetup_id===m.id&&a.status==='pending');
  for(const a of pending){const item=el('div');item.style.cssText='padding:9px;border-top:1px solid #493a51';detail(item,'신청 회원: '+a.applicant_id);item.append(button('✅ 승인',()=>decide(a,'approved')),button('❌ 거절',()=>decide(a,'rejected')));d.append(item)}
  if(!pending.length)detail(d,'승인 대기 0명');
+ const deleteBtn=button('🗑️ 모임 삭제',()=>deleteMeetup(m));
+ deleteBtn.style.cssText='background:#42232e;color:#ffdbe1;border:1px solid #a55b72;margin-top:12px';
+ d.append(deleteBtn);
  }else if(mine){detail(d,'내 신청 상태: '+({pending:'승인 대기',approved:'승인 완료',rejected:'거절됨'}[mine.status]||mine.status));
  }else if(m.status==='open'&&new Date(m.starts_at)>new Date()){d.append(button('🙋 참가 신청',()=>apply(m)))}
  list.append(d)
  }
  }catch(e){list.textContent='모임 조회 실패: '+error(e)}}
+ async function deleteMeetup(m){
+  if(!confirm('「'+m.title+'」 모임을 삭제할까?\n참가 신청 내역도 함께 삭제되며 되돌릴 수 없어.'))return;
+  if(!confirm('정말 삭제할까? 이 작업은 취소할 수 없어.'))return;
+  try{
+   const me=await identity();
+   if(m.host_id!==me.id)throw Error('본인이 만든 모임만 삭제할 수 있어.');
+   // Delete only applications attached to this meetup. Other meetups are untouched.
+   await query(client.from('meetup_applications').delete().eq('meetup_id',m.id));
+   const deleted=await query(client.from('meetups').delete().eq('id',m.id).eq('host_id',me.id).select('id'));
+   if(!deleted||deleted.length!==1)throw Error('삭제 권한 또는 데이터베이스 정책을 확인해 줘.');
+   alert('모임이 삭제됐어.');await render();
+  }catch(e){alert('모임 삭제 실패: '+error(e))}
+ }
  async function apply(m){if(!confirm('「'+m.title+'」 모임에 참가 신청할까?'))return;try{await query(client.rpc('request_meetup',{p_meetup_id:m.id}));alert('참가 신청 완료! 모임장 승인을 기다려 줘.');await render()}catch(e){alert('신청 실패: '+error(e))}}
  async function decide(a,status){if(!confirm(status==='approved'?'참가를 승인할까?':'참가를 거절할까?'))return;try{await query(client.from('meetup_applications').update({status}).eq('id',a.id));alert(status==='approved'?'승인했어.':'거절했어.');await render()}catch(e){alert('처리 실패: '+error(e))}}
  $('tc-off-create-toggle').onclick=()=>{form.hidden=!form.hidden};$('tc-off-refresh').onclick=render;
