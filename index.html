@@ -463,12 +463,12 @@ function editChatRoomDialog(room){
   const overlay=document.createElement('div');overlay.className='tc-room-edit-overlay';
   overlay.innerHTML=`<div class="tc-room-edit-dialog" role="dialog" aria-modal="true" aria-labelledby="tc-room-edit-heading"><h3 id="tc-room-edit-heading">✏️ 채팅방 정보 수정</h3><form class="tc-room-edit-form"><label>채팅방 제목<input name="title" minlength="2" maxlength="100" required></label><label>채팅방 소개 <small>최대 1000자</small><textarea name="description" rows="7" maxlength="1000" placeholder="어떤 이야기를 나누는 방인지 자유롭게 작성해 줘"></textarea></label><label>최대 인원 (방장 포함)<input name="max" type="number" min="2" max="30" required></label><div class="tc-room-edit-actions"><button type="button" class="tc-room-edit-cancel">취소</button><button type="submit" class="tc-room-edit-save">변경사항 저장</button></div></form></div>`;
   const form=overlay.querySelector('form');form.elements.title.value=room.title||'';form.elements.description.value=room.description||'';form.elements.max.value=room.max_members||30;
-  const close=value=>{document.removeEventListener('keydown',onKey);overlay.remove();resolve(value)};
-  const onKey=e=>{if(e.key==='Escape')close(null)};
+  // Keep the editor open during selection, dragging, and clicks outside.
+  // Only the explicit Cancel / Save buttons may close it.
+  const close=value=>{overlay.remove();resolve(value)};
   overlay.querySelector('.tc-room-edit-cancel').onclick=()=>close(null);
-  overlay.addEventListener('click',e=>{if(e.target===overlay)close(null)});
   form.onsubmit=e=>{e.preventDefault();const title=form.elements.title.value.trim(),description=form.elements.description.value,max=Number(form.elements.max.value);if(title.length<2||title.length>100||description.length>1000||!Number.isInteger(max)||max<2||max>30){alert('제목 2~100자, 소개 1000자 이하, 인원 2~30명을 확인해 줘.');return}close({title,description,max})};
-  document.body.append(overlay);document.addEventListener('keydown',onKey);form.elements.title.focus();
+  document.body.append(overlay);form.elements.title.focus();
  });
 }
 async function manageRoom(room,action){
