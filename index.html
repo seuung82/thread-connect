@@ -651,7 +651,15 @@ function init(){mount();adminBox.querySelectorAll('[data-member-filter]').forEac
 const reports=$('tc-safety-reports');if(reports){reports.addEventListener('click',e=>{if(!isAdmin)return;const item=e.target.closest('.entry');if(!item)return;const match=item.textContent.match(/신고 대상:\s*([0-9a-f-]{36})/i);if(match){$('tc-suspend-user').value=match[1];out('신고 대상 회원을 선택했어. 제재 사유를 입력해 줘.')}})}
 db.auth.onAuthStateChange(()=>setTimeout(()=>refresh().catch(console.error),300));refresh().catch(console.error)}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
-})();</script><script id="tc-offline-meetup-restore">
+})();</script><style id="tc-offline-applicant-profile-style">
+#tc-offline .tc-off-applicant{padding:16px 13px;margin:12px 0;border:1px solid #65506f;border-radius:15px;background:#292033;overflow-wrap:anywhere}
+#tc-offline .tc-off-applicant strong{font-size:17px;color:#fff}
+#tc-offline .tc-off-applicant p{margin:7px 0!important}
+#tc-offline .tc-off-threads-link{display:inline-flex;align-items:center;justify-content:center;min-height:43px;padding:11px 15px;margin:9px 0 6px;background:#f2e4ff;color:#24162e!important;border-radius:11px;text-decoration:none;font-weight:800;font-size:13px}
+#tc-offline .tc-off-applicant-actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
+#tc-offline .tc-off-applicant-actions button{margin:0!important}
+</style>
+<script id="tc-offline-meetup-restore">
 (function(){
 'use strict';
 const panel=document.getElementById('tc-offline');if(!panel)return;
@@ -668,12 +676,26 @@ function detail(d,t){const p=el('p',t);p.style.cssText='font-size:13px;color:#d2
 async function render(){list.textContent='모임 불러오는 중...';try{
  const me=await identity();const rows=await query(client.from('meetups').select('*').order('starts_at',{ascending:true}).limit(100));
  const apps=await query(client.from('meetup_applications').select('id,meetup_id,applicant_id,status').in('meetup_id',rows.length?rows.map(r=>r.id):['00000000-0000-0000-0000-000000000000']));
+ const pendingIds=[...new Set(apps.filter(a=>a.status==='pending'&&rows.some(m=>m.id===a.meetup_id&&m.host_id===me.id)).map(a=>a.applicant_id))];
+ const profileMap=new Map();
+ if(pendingIds.length){try{const profiles=await query(client.from('member_directory').select('id,display_name,threads_handle,bio').in('id',pendingIds));for(const p of profiles)profileMap.set(p.id,p)}catch(e){console.warn('모임 신청자 프로필 조회 실패',e)}}
  list.replaceChildren();if(!rows.length){list.append(el('p','아직 등록된 오프라인 모임이 없어. 첫 모임을 만들어 봐!'));return}
  for(const m of rows){const d=card();const title=el('strong',(m.status==='open'?'📍 ':'🔒 ')+m.title);d.append(title);
  detail(d,[categoryNames[m.category]||m.category,m.region_sido,m.region_sigungu,m.region_eupmyeondong].filter(Boolean).join(' · '));detail(d,'📅 '+new Date(m.starts_at).toLocaleString('ko-KR')+' · 정원 '+m.capacity+'명');if(m.venue_hint)detail(d,'장소: '+m.venue_hint);if(m.description)detail(d,m.description);
  const mine=apps.find(a=>a.meetup_id===m.id&&a.applicant_id===me.id);const isHost=m.host_id===me.id;
  if(isHost){detail(d,'👑 내가 만든 모임');const pending=apps.filter(a=>a.meetup_id===m.id&&a.status==='pending');
- for(const a of pending){const item=el('div');item.style.cssText='padding:9px;border-top:1px solid #493a51';detail(item,'신청 회원: '+a.applicant_id);item.append(button('✅ 승인',()=>decide(a,'approved')),button('❌ 거절',()=>decide(a,'rejected')));d.append(item)}
+ for(const a of pending){
+ const item=el('div');item.className='tc-off-applicant';
+ const p=profileMap.get(a.applicant_id);
+ const name=el('strong',p?.display_name||'프로필 확인 불가');item.append(name);
+ const handle=String(p?.threads_handle||'').trim().replace(/^@/,'');
+ detail(item,handle?'@'+handle:'Threads 아이디를 확인할 수 없어.');
+ if(p?.bio)detail(item,p.bio);
+ if(/^[a-zA-Z0-9._]+$/.test(handle)){
+  const link=el('a','↗ Threads 프로필 확인');link.href='https://www.threads.net/@'+encodeURIComponent(handle);link.target='_blank';link.rel='noopener noreferrer';link.className='tc-off-threads-link';item.append(link);
+ }else{detail(item,'Threads 계정 확인 불가 — 승인 전 회원 정보를 확인해 줘.');}
+ const actions=el('div');actions.className='tc-off-applicant-actions';actions.append(button('✅ 승인',()=>decide(a,'approved')),button('❌ 거절',()=>decide(a,'rejected')));item.append(actions);d.append(item)
+ }
  if(!pending.length)detail(d,'승인 대기 0명');
  const deleteBtn=button('🗑️ 모임 삭제',()=>deleteMeetup(m));
  deleteBtn.style.cssText='background:#42232e;color:#ffdbe1;border:1px solid #a55b72;margin-top:12px';
