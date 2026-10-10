@@ -690,4 +690,34 @@ async function render(){list.textContent='모임 불러오는 중...';try{
  document.querySelector('[data-tc-tab="meetup"]')?.addEventListener('click',()=>setTimeout(render,200));
  client?.auth.onAuthStateChange(()=>setTimeout(()=>{if(!document.getElementById('tc-meetup').hidden)render()},300));
 })();
-</script></body></html>
+</script>
+<style id="tc-meetup-switch-style">
+#tc-meetup .tc-meetup-switch{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin:4px 0 20px}
+#tc-meetup .tc-meetup-switch button{margin:0!important;min-width:0;min-height:105px;padding:15px 7px!important;border-radius:19px!important;border:1px solid #50425a!important;background:#211b29!important;color:#e9dceb!important;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:7px;font-weight:800;font-size:15px}
+#tc-meetup .tc-meetup-switch button[aria-selected="true"]{background:#392746!important;border:2px solid #c69add!important;color:#fff!important}
+#tc-meetup .tc-meetup-switch .tc-switch-icon{font-size:28px;line-height:1.1}
+#tc-meetup .tc-meetup-switch .tc-switch-sub{font-size:11px;font-weight:500;color:#c9b9d2}
+#tc-meetup .tc-meetup-pane[hidden]{display:none!important}
+</style>
+<script id="tc-meetup-switch-script">
+(function(){
+ const setup=()=>{
+  const root=document.getElementById('tc-meetup');const offline=document.getElementById('tc-offline');
+  if(!root||!offline||root.querySelector('.tc-meetup-switch'))return;
+  const switcher=document.createElement('div');switcher.className='tc-meetup-switch';switcher.setAttribute('role','tablist');switcher.setAttribute('aria-label','모임 유형 선택');
+  const chatBtn=document.createElement('button');chatBtn.type='button';chatBtn.setAttribute('role','tab');chatBtn.innerHTML='<span class="tc-switch-icon">💬</span><span>단톡방</span><span class="tc-switch-sub">온라인 대화</span>';
+  const offBtn=document.createElement('button');offBtn.type='button';offBtn.setAttribute('role','tab');offBtn.innerHTML='<span class="tc-switch-icon">📍</span><span>오프라인 모임</span><span class="tc-switch-sub">직접 만나기</span>';
+  switcher.append(chatBtn,offBtn);
+  const chatPane=document.createElement('div');chatPane.className='tc-meetup-pane';chatPane.id='tc-chat-pane';chatPane.setAttribute('role','tabpanel');
+  const offPane=document.createElement('div');offPane.className='tc-meetup-pane';offPane.id='tc-off-pane';offPane.setAttribute('role','tabpanel');
+  // Existing elements and their listeners are moved, not copied or recreated.
+  for(const node of Array.from(root.childNodes)){if(node!==offline)chatPane.appendChild(node)}
+  offPane.appendChild(offline);root.append(switcher,chatPane,offPane);
+  const select=type=>{const chat=type==='chat';chatPane.hidden=!chat;offPane.hidden=chat;chatBtn.setAttribute('aria-selected',String(chat));offBtn.setAttribute('aria-selected',String(!chat));};
+  chatBtn.addEventListener('click',()=>select('chat'));offBtn.addEventListener('click',()=>select('offline'));
+  select('chat');
+ };
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',setup,{once:true});else setup();
+})();
+</script>
+</body></html>
