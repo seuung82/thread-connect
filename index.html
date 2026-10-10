@@ -444,7 +444,7 @@ async function hideRoomForMe(room){
   await refresh();
  }catch(e){alert('내 목록에서 숨기기 실패: '+err(e))}
 }
-async function refresh(){if(active||loading)return;loading=true;list.textContent='단톡방 불러오는 중...';try{const identity=await session();if(!identity)throw Error('로그인이 필요해.');user=identity.user;const rooms=await api('chat_rooms?select=id,host_id,title,description,max_members,status,recruitment_closed,created_at&order=created_at.desc&limit=100');const [mine,counts,hiddenRows]=await Promise.all([api('chat_room_members?select=id,room_id,user_id,status&user_id=eq.'+encodeURIComponent(user.id)+'&limit=200'),api('rpc/get_chat_room_counts','POST',{}),api('chat_room_hidden?select=room_id&user_id=eq.'+encodeURIComponent(user.id))]);const hiddenSet=new Set(hiddenRows.map(r=>r.room_id));await updateUnread();const myMap=new Map(mine.map(m=>[m.room_id,m])),countMap=new Map((counts||[]).map(c=>[c.room_id,Number(c.member_count)]));list.replaceChildren();if(!rooms.length)list.append(node('p','아직 단톡방이 없어. 첫 방을 만들어 봐!','tc-note'));for(const room of rooms){if(hiddenSet.has(room.id))continue;const card=node('div',undefined,'tc-chat-room'),own=room.host_id===user.id,m=myMap.get(room.id),count=countMap.get(room.id)??1;const roomTitle=node('strong','💬 '+room.title);const unread=unreadMap.get(room.id)||0;if(unread){const badge=node('span',unread>99?'99+':String(unread),'tc-unread-badge');badge.setAttribute('aria-label','읽지 않은 메시지 '+unread+'개');roomTitle.append(badge)}card.append(roomTitle);if(room.description)card.append(node('p',room.description));card.append(node('p','👥 '+count+' / '+(room.max_members||30)+'명 · '+(room.status!=='open'?'종료됨':room.recruitment_closed?'모집 마감 · 채팅 운영 중':'모집 중')));const actions=node('div',undefined,'tc-chat-actions');if(own||m?.status==='approved'){actions.append(btn('💬 채팅 입장',()=>openRoom(room)));if(own){card.append(hostRoomControls(room));const box=node('div');card.append(box);if(room.status==='open')await hostApplications(room,box)}}else if(m?.status==='pending'){actions.append(node('span','⏳ 승인 신청 완료 · 방장 승인 대기 중','tc-note'))}else if(m?.status==='rejected'){actions.append(node('span','가입 신청이 거절됐어','tc-note'))}else if(room.status==='open'&&!room.recruitment_closed&&count<(room.max_members||30)){actions.append(btn('✉️ 승인 신청 메시지 보내기',()=>request(room.id)))}else{actions.append(node('span',room.recruitment_closed?'모집 마감':'가입 불가','tc-note'))}if(own||m?.status==='approved'){actions.append(btn('🗑️ 내 목록에서 숨기기',()=>hideRoomForMe(room)))}card.append(actions);list.append(card)}}catch(e){list.textContent='채팅방 목록 오류: '+err(e)}finally{loading=false}}
+async function refresh(){if(active||loading)return;loading=true;list.textContent='단톡방 불러오는 중...';try{const identity=await session();if(!identity)throw Error('로그인이 필요해.');user=identity.user;const rooms=await api('chat_rooms?select=id,host_id,title,description,max_members,status,recruitment_closed,created_at&order=created_at.desc&limit=100');const [mine,counts,hiddenRows]=await Promise.all([api('chat_room_members?select=id,room_id,user_id,status&user_id=eq.'+encodeURIComponent(user.id)+'&limit=200'),api('rpc/get_chat_room_counts','POST',{}),api('chat_room_hidden?select=room_id&user_id=eq.'+encodeURIComponent(user.id))]);const hiddenSet=new Set(hiddenRows.map(r=>r.room_id));await updateUnread();const myMap=new Map(mine.map(m=>[m.room_id,m])),countMap=new Map((counts||[]).map(c=>[c.room_id,Number(c.member_count)]));list.replaceChildren();if(!rooms.length)list.append(node('p','아직 단톡방이 없어. 첫 방을 만들어 봐!','tc-note'));for(const room of rooms){if(hiddenSet.has(room.id))continue;const card=node('div',undefined,'tc-chat-room'),own=room.host_id===user.id,m=myMap.get(room.id),count=countMap.get(room.id)??1;const roomTitle=node('strong','💬 '+room.title);const unread=unreadMap.get(room.id)||0;if(unread){const badge=node('span',unread>99?'99+':String(unread),'tc-unread-badge');badge.setAttribute('aria-label','읽지 않은 메시지 '+unread+'개');roomTitle.append(badge)}card.append(roomTitle);if(room.description)card.append(node('p',room.description));card.append(node('p','👥 '+count+' / '+(room.max_members||30)+'명 · '+(room.status!=='open'?'종료됨':room.recruitment_closed?'모집 마감 · 채팅 운영 중':'모집 중')));const actions=node('div',undefined,'tc-chat-actions');if(own||m?.status==='approved'){actions.append(btn('💬 채팅 입장',()=>openRoom(room)));if(own){card.append(hostRoomControls(room));const box=node('div');card.append(box);if(room.status==='open')await hostApplications(room,box)}}else if(m?.status==='pending'){actions.append(node('span','⏳ 승인 신청 완료 · 방장 승인 대기 중','tc-note'))}else if(m?.status==='rejected'){actions.append(node('span','가입 신청이 거절됐거나 강제퇴장된 방이야','tc-note'))}else if(room.status==='open'&&!room.recruitment_closed&&count<(room.max_members||30)){actions.append(btn('✉️ 승인 신청 메시지 보내기',()=>request(room.id)))}else{actions.append(node('span',room.recruitment_closed?'모집 마감':'가입 불가','tc-note'))}if(own||m?.status==='approved'){actions.append(btn('🗑️ 내 목록에서 숨기기',()=>hideRoomForMe(room)))}card.append(actions);list.append(card)}}catch(e){list.textContent='채팅방 목록 오류: '+err(e)}finally{loading=false}}
 async function hostApplications(room,area){try{const apps=await api('chat_room_members?select=id,user_id,status,created_at,application_message&room_id=eq.'+encodeURIComponent(room.id)+'&order=created_at.asc&limit=200');const pending=apps.filter(a=>a.status==='pending');area.append(node('p','👑 내가 만든 방 · 승인 대기 '+pending.length+'명','tc-note'));if(!pending.length)return;let names=new Map();try{const ids=pending.map(a=>a.user_id);const rows=await api('member_directory?select=id,display_name&id=in.('+ids.join(',')+')');names=new Map(rows.map(x=>[x.id,x.display_name]))}catch(_){}for(const a of pending){const row=node('div',undefined,'tc-chat-applicant');row.append(node('p','🙋 '+(names.get(a.user_id)||'신청 회원 ('+a.user_id.slice(0,8)+')')));if(a.application_message)row.append(node('p','💌 신청 메시지: '+a.application_message,'tc-note'));row.append(btn('승인',()=>decide(a.id,true)),btn('거절',()=>decide(a.id,false)));area.append(row)}}catch(e){area.append(node('p','신청자 조회 실패: '+err(e),'tc-note'))}}
 async function request(id){
   const message=prompt('승인 신청 메시지를 보내세요 (2~300자)\n방장에게 전달할 인사말을 작성해 줘.','안녕하세요! 함께 이야기 나누고 싶어요.');
@@ -464,8 +464,8 @@ async function leaveChatRoom(){
 async function kickChatMember(member){
  if(!active||active.host_id!==user.id)return;
  const name=chatProfile(member.user_id).display_name||'회원';
- if(!confirm(name+' 님을 강제퇴장시킬까? 퇴장 후에는 채팅을 볼 수 없어.'))return;
- try{await api('rpc/kick_chat_room_member','POST',{p_room_id:active.id,p_user_id:member.user_id});alert('강제퇴장 완료');await renderMemberTools()}
+ if(!confirm(name+' 님을 강제퇴장시킬까? 방장이 해제하기 전까지 재신청할 수 없어.'))return;
+ try{await api('rpc/host_kick_chat_member','POST',{p_room_id:active.id,p_user_id:member.user_id});alert('강제퇴장 완료 · 재신청 금지');await renderMemberTools();const body=el('tc-chat-member-list');if(body){body.hidden=false;await loadMembers(body,active.id)}}
  catch(e){alert('강제퇴장 실패: '+err(e))}
 }
 async function renderMemberTools(){
@@ -491,6 +491,21 @@ async function loadMembers(body,roomId){
   for(const m of members){const row=node('div',undefined,'tc-room-member-row');const profile=chatProfile(m.user_id);
    row.append(node('span','👤 '+(profile.display_name||'회원 ('+m.user_id.slice(0,8)+')')));
    row.append(btn('강제퇴장',()=>kickChatMember(m)));body.append(row)}
+  const banned=await api('rpc/host_list_chat_bans','POST',{p_room_id:roomId});
+  if(banned.length){
+    await loadChatProfiles(banned.map(x=>x.user_id));
+    const heading=node('p','⛔ 강제퇴장 · 재신청 금지 '+banned.length+'명','tc-note');heading.style.marginTop='18px';body.append(heading);
+    for(const bannedMember of banned){
+      const row=node('div',undefined,'tc-room-member-row');
+      const profile=chatProfile(bannedMember.user_id);
+      row.append(node('span','🚫 '+(profile.display_name||'회원 ('+bannedMember.user_id.slice(0,8)+')')));
+      row.append(btn('퇴장 해제',async()=>{
+        if(!confirm('이 회원의 강제퇴장을 해제할까? 해제 후 다시 가입 신청할 수 있어.'))return;
+        try{const result=await api('rpc/host_unban_chat_member','POST',{p_room_id:roomId,p_user_id:bannedMember.user_id});alert(result||'해제 완료');await loadMembers(body,roomId)}
+        catch(e){alert('퇴장 해제 실패: '+err(e))}
+      }));body.append(row);
+    }
+  }
  }catch(e){body.textContent='회원 목록 오류: '+err(e)}
 }
 function setRoomClosedUI(closed){
