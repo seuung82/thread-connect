@@ -357,7 +357,7 @@ function drawDirectory(){
   const card=document.createElement('div');card.className='tc-directory-card'+(isMatch?' tc-is-match':'');
   if(isMatch){const label=document.createElement('div');label.className='tc-match-label';label.textContent='💜 IT’S A MATCH · 서로 호감';card.append(label)}
   const title=document.createElement('strong');title.className='tc-directory-name';title.textContent=(p.display_name||'이름 없음')+' · @'+(p.threads_handle||'');card.append(title);
-  const info=document.createElement('p');info.className='tc-directory-info';info.textContent=[p.region_sido,p.region_sigungu,p.region_eupmyeondong,p.mbti,(p.interests||[]).join(' · ')].filter(Boolean).join(' · ');card.append(info);
+  const info=document.createElement('p');info.className='tc-directory-info';info.textContent=[p.region_sido,p.region_sigungu,p.mbti,(p.interests||[]).join(' · ')].filter(Boolean).join(' · ');card.append(info);
   if(p.bio){const bio=document.createElement('p');bio.className='tc-directory-bio';bio.textContent=p.bio;card.append(bio)}
   if(isMatch){const message=document.createElement('p');message.className='tc-match-message';message.textContent='💗 서로의 마음이 통했어요!';card.append(message)}
   const actions=document.createElement('div');actions.className='tc-directory-actions';
