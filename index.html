@@ -807,7 +807,7 @@ for(const r of reports){
   const warning='경고 '+count+'회'+(item.last_warning_at?' · 최근 '+new Date(item.last_warning_at).toLocaleDateString('ko-KR'):'');
   const type=item.suspension_type;
   const status=type==='permanent'?'현재 상태: 영구 정지 중':type?'현재 상태: 일시 정지 중 · '+new Date(item.ends_at).toLocaleString('ko-KR')+' 종료 예정':'현재 상태: 정지 없음';
-  sanctionState.textContent=warning+'\\n'+status;
+  sanctionState.textContent=warning+String.fromCharCode(10)+status;
  };
  showSanctionState();
  const sanctionSelect=document.createElement('select');
