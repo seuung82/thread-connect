@@ -793,7 +793,7 @@ const fragment=document.createDocumentFragment();
 if(!reports.length)fragment.append(document.createTextNode('접수된 신고가 없어.'));
 for(const r of reports){
  const row=document.createElement('div');row.className='entry';
- const title=document.createElement('strong');title.textContent=r.reason+' · '+r.status;
+ const title=document.createElement('strong');title.textContent=r.reason+' · '+({reviewed:'처리 완료',dismissed:'기각',pending:'대기'}[r.status]||r.status);
  const info=document.createElement('p');info.style.overflowWrap='anywhere';
  info.textContent='신고 대상: '+memberLabel(r.reported_id)+' / 신고자: '+memberLabel(r.reporter_id)+'\n'+(r.details||'')+'\n'+new Date(r.created_at).toLocaleString('ko-KR');
  row.append(title,info);
@@ -825,6 +825,24 @@ for(const r of reports){
  if(error)alert('제재 실패: '+error.message);else{alert('제재 처리 완료');await drawReports()}
  };
  row.append(sanctionSelect,sanctionButton);
+ const historyToggle=document.createElement('button');historyToggle.textContent='제재 이력 보기';
+ const historyBox=document.createElement('div');historyBox.hidden=true;historyBox.style.cssText='padding:10px 0;white-space:pre-wrap;color:#d8c5e4;font-size:12px';
+ historyToggle.onclick=async()=>{
+  historyBox.hidden=!historyBox.hidden;
+  if(historyBox.hidden)return;
+  historyBox.textContent='제재 이력 불러오는 중...';
+  const {data,error}=await db.rpc('tc_admin_sanction_history',{p_user_id:r.reported_id});
+  if(error){historyBox.textContent='이력 조회 실패: '+error.message;return;}
+  historyBox.replaceChildren();
+  if(!data?.length){historyBox.textContent='제재 이력이 없어.';return;}
+  for(const entry of data){
+   const p=document.createElement('p');p.style.margin='7px 0';
+   const label=({warning:'경고','1day':'1일 정지','3days':'3일 정지','7days':'7일 정지','30days':'30일 정지',permanent:'영구 정지'}[entry.action]||entry.action);
+   p.textContent=new Date(entry.acted_at).toLocaleString('ko-KR')+' · '+label+' · '+entry.admin_name+'\\n사유: '+entry.reason+(entry.revoked_at?'\\n해제: '+new Date(entry.revoked_at).toLocaleString('ko-KR'):'')+(entry.ends_at?'\\n종료 예정: '+new Date(entry.ends_at).toLocaleString('ko-KR'):'');
+   historyBox.append(p);
+  }
+ };
+ row.append(historyToggle,historyBox);
  for(const [status,label] of [['reviewed','처리 완료'],['dismissed','기각'],['pending','대기']]){
   const btn=document.createElement('button');btn.textContent=label;btn.disabled=r.status===status;
   btn.onclick=async()=>{const {error}=await db.from('member_reports').update({status}).eq('id',r.id);if(error)say('처리 실패: '+error.message);else await drawReports()};
@@ -849,11 +867,17 @@ const db=window.supabase.createClient('https://foucfjyzkfbmdwxwgthl.supabase.co'
 const $=id=>document.getElementById(id);let uid=null,isAdmin=false;
 const adminBox=document.createElement('div');adminBox.id='tc-suspension-admin';adminBox.hidden=true;
 adminBox.innerHTML='<h3>⛔ 운영자 회원 제재</h3><p style="font-size:12px;color:#c8b4d1">신고 대상의 회원 ID를 입력하거나 신고 목록에서 선택해 줘.</p><label class="tc-suspend-field">회원 검색 (이름 또는 Threads 아이디)<input id="tc-admin-member-keyword" placeholder="예: @testthread456" autocomplete="off"></label><button type="button" id="tc-admin-member-search">🔎 회원 검색</button><div id="tc-admin-member-results" class="tc-admin-member-results" role="status"></div><div id="tc-admin-list-section" style="margin:19px 0;padding:15px 0;border-top:1px solid #54425f"><h4 style="margin:0 0 10px">👥 전체 회원 관리</h4><div role="group" aria-label="회원 상태 필터"><button type="button" data-member-filter="all">전체</button><button type="button" data-member-filter="normal">정상</button><button type="button" data-member-filter="suspended">정지</button></div><p id="tc-admin-list-status" class="tc-suspend-state" role="status">필터 버튼을 누르면 회원 목록을 불러와.</p><div id="tc-admin-list-results" class="tc-admin-member-results"></div><div id="tc-admin-list-pagination" class="row" style="justify-content:center;gap:10px;margin:14px 0"><button type="button" id="tc-admin-page-prev">← 이전</button><span id="tc-admin-page-info" style="font-size:13px;color:#dfcbe9" aria-live="polite">1 / 1 페이지</span><button type="button" id="tc-admin-page-next">다음 →</button></div><p class="tc-suspend-state">한 페이지 20명 · 회원을 누르면 아래 제재 대상에 자동 입력돼.</p></div><label class="tc-suspend-field">회원 ID (UUID)<input id="tc-suspend-user" placeholder="신고 대상 회원 ID" autocomplete="off"></label><label class="tc-suspend-field">제재 사유<textarea id="tc-suspend-reason" rows="2" maxlength="500" placeholder="제재 사유를 입력해 줘"></textarea></label><div><button type="button" id="tc-suspend-check">현재 상태 조회</button><button type="button" id="tc-suspend-week">7일 정지</button><button type="button" id="tc-suspend-forever">영구 정지</button><button type="button" id="tc-suspend-revoke">정지 해제</button></div><p class="tc-suspend-state" id="tc-suspend-result" role="status"></p>';
+const warningNotice=document.createElement('div');warningNotice.id='tc-warning-notice';warningNotice.style.cssText='border:1px solid #78628e;background:#261d32;color:#ead7f8;padding:14px;border-radius:13px;margin:12px 0;white-space:pre-wrap';warningNotice.hidden=true;
 const notice=document.createElement('div');notice.id='tc-suspension-notice';notice.hidden=true;notice.setAttribute('role','status');
-function mount(){const parent=$('tc-safety-admin');if(parent&&!parent.contains(adminBox))parent.append(adminBox);const profile=$('tc-profile');if(profile&&!profile.contains(notice))profile.prepend(notice)}
+function mount(){const parent=$('tc-safety-admin');if(parent&&!parent.contains(adminBox))parent.append(adminBox);const profile=$('tc-profile');if(profile&&!profile.contains(notice))profile.prepend(notice);if(profile&&!profile.contains(warningNotice))profile.prepend(warningNotice)}
 const out=t=>{const el=$('tc-suspend-result');if(el)el.textContent=t};
 async function check(target){const {data,error}=await db.rpc('get_member_suspension',{p_user_id:target});if(error)throw error;const item=Array.isArray(data)?data[0]:data;return item||null}
-async function updateNotice(){if(!uid)return;try{const r=await check(uid);notice.hidden=!r;if(r)notice.textContent='⛔ 이용 정지 중\n'+(r.suspension_type==='permanent'?'영구 정지':'7일 정지')+'\n사유: '+r.reason+'\n'+(r.ends_at?'종료 예정: '+new Date(r.ends_at).toLocaleString('ko-KR'):'운영자가 해제할 때까지 유지됩니다.')+'\n정지 기간에는 채팅·호감·모임 신청·개설이 제한됩니다.';}catch(e){console.warn('정지 안내 조회 실패',e)}}
+async function updateNotice(){if(!uid)return;
+ try{const {data,error}=await db.rpc('tc_my_warnings');if(error)throw error;
+ const warnings=data||[];warningNotice.hidden=!warnings.length;
+ if(warnings.length)warningNotice.textContent='⚠️ 운영자 경고 '+warnings.length+'건 (최근 20건)\\n'+warnings.slice(0,5).map(w=>new Date(w.created_at).toLocaleDateString('ko-KR')+' · '+w.reason).join('\\n');
+ }catch(e){console.warn('경고 안내 조회 실패',e)}
+ try{const r=await check(uid);notice.hidden=!r;if(r)notice.textContent='⛔ 이용 정지 중\n'+(r.suspension_type==='permanent'?'영구 정지':({'1day':'1일 정지','3days':'3일 정지','7days':'7일 정지','30days':'30일 정지'}[r.suspension_type]||'일시 정지'))+'\n사유: '+r.reason+'\n'+(r.ends_at?'종료 예정: '+new Date(r.ends_at).toLocaleString('ko-KR'):'운영자가 해제할 때까지 유지됩니다.')+'\n정지 기간에는 채팅·호감·모임 신청·개설이 제한됩니다.';}catch(e){console.warn('정지 안내 조회 실패',e)}}
 async function searchMembers(){
   const keyword=$('tc-admin-member-keyword').value.trim();
   const area=$('tc-admin-member-results');area.replaceChildren();
