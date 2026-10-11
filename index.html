@@ -765,8 +765,47 @@ root.replaceChildren(fragment);
 $('tc-safety-admin').hidden=!admin;
 if(admin)await drawReports();
 }
-async function drawReports(){const root=$('tc-safety-reports');root.textContent='신고 목록 불러오는 중...';const {data,error}=await db.from('member_reports').select('id,reporter_id,reported_id,reason,details,status,created_at').order('created_at',{ascending:false}).limit(100);if(error){root.textContent='신고 조회 실패: '+error.message;return}root.replaceChildren();if(!data.length)root.textContent='접수된 신고가 없어.';
-for(const r of data){const row=document.createElement('div');row.className='entry';const title=document.createElement('strong');title.textContent=r.reason+' · '+r.status;const info=document.createElement('p');info.style.overflowWrap='anywhere';info.textContent='신고 대상: '+r.reported_id+' / 신고자: '+r.reporter_id+'\n'+(r.details||'')+'\n'+new Date(r.created_at).toLocaleString('ko-KR');row.append(title,info);for(const [status,label] of [['reviewed','처리 완료'],['dismissed','기각'],['pending','대기']]){const b=document.createElement('button');b.textContent=label;b.disabled=r.status===status;b.onclick=async()=>{const {error}=await db.from('member_reports').update({status}).eq('id',r.id);if(error)say('처리 실패: '+error.message);else await drawReports()};row.append(b)}root.append(row)}}
+let safetyReportsRenderVersion=0;
+async function drawReports(){
+const version=++safetyReportsRenderVersion;
+const root=$('tc-safety-reports');if(!root)return;
+root.textContent='신고 목록 불러오는 중...';
+const {data,error}=await db.from('member_reports').select('id,reporter_id,reported_id,reason,details,status,created_at').order('created_at',{ascending:false}).limit(100);
+if(version!==safetyReportsRenderVersion)return;
+if(error){root.textContent='신고 조회 실패: '+error.message;return;}
+const reports=data||[];
+const ids=[...new Set(reports.flatMap(r=>[r.reporter_id,r.reported_id]).filter(Boolean))];
+let names=new Map();
+if(ids.length){
+ const {data:members,error:memberError}=await db.from('member_directory').select('id,display_name,threads_handle').in('id',ids);
+ if(memberError)console.warn('신고 회원 정보 조회 실패',memberError);
+ names=new Map((members||[]).map(m=>[m.id,m]));
+}
+if(version!==safetyReportsRenderVersion)return;
+const memberLabel=id=>{
+ const m=names.get(id);
+ if(!m)return '회원 정보 없음 ('+id+')';
+ const name=safeName(m.display_name);
+ const handle=String(m.threads_handle||'').trim().replace(/^@/,'');
+ return name+(handle?' (@'+handle+')':'');
+};
+const fragment=document.createDocumentFragment();
+if(!reports.length)fragment.append(document.createTextNode('접수된 신고가 없어.'));
+for(const r of reports){
+ const row=document.createElement('div');row.className='entry';
+ const title=document.createElement('strong');title.textContent=r.reason+' · '+r.status;
+ const info=document.createElement('p');info.style.overflowWrap='anywhere';
+ info.textContent='신고 대상: '+memberLabel(r.reported_id)+' / 신고자: '+memberLabel(r.reporter_id)+'\n'+(r.details||'')+'\n'+new Date(r.created_at).toLocaleString('ko-KR');
+ row.append(title,info);
+ for(const [status,label] of [['reviewed','처리 완료'],['dismissed','기각'],['pending','대기']]){
+  const btn=document.createElement('button');btn.textContent=label;btn.disabled=r.status===status;
+  btn.onclick=async()=>{const {error}=await db.from('member_reports').update({status}).eq('id',r.id);if(error)say('처리 실패: '+error.message);else await drawReports()};
+  row.append(btn);
+ }
+ fragment.append(row);
+}
+root.replaceChildren(fragment);
+}
 window.tcSafety={refresh,isBlocked,report,block,unblock};
 // 채팅방 회원 미니 프로필에도 신고·차단 버튼을 표시한다.
 const observer=new MutationObserver(()=>{const card=$('tc-chat-profile-card');if(!card||card.querySelector('.tc-safety-actions'))return;const actions=document.createElement('div');actions.className='tc-safety-actions';actions.id='tc-chat-safety-actions';const r=document.createElement('button');r.textContent='🚨 신고';const b=document.createElement('button');b.textContent='🚫 차단';r.onclick=()=>{const id=card.dataset.safetyUserId;if(id)report(id,$('tc-profile-name')?.textContent)};b.onclick=()=>{const id=card.dataset.safetyUserId;if(id)block(id,$('tc-profile-name')?.textContent)};actions.append(r,b);card.append(actions)});
