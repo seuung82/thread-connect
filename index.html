@@ -715,6 +715,8 @@ document.querySelector('[data-tc-tab="meetup"]').addEventListener('click',()=>{i
 #tc-safety-settings{border-top:1px solid #44374c;margin-top:25px;padding-top:20px}#tc-safety-settings .entry{border-bottom:1px solid #3b3141;padding:12px 0;font-size:13px}
 </style>
 <script id="tc-safety-feature">(function(){'use strict';
+if(window.__tcSafetyFeatureInitialized)return;
+window.__tcSafetyFeatureInitialized=true;
 const url='https://foucfjyzkfbmdwxwgthl.supabase.co',key='sb_publishable_LxicXlsguNiijTuVx_RdYA_KLmr_V3m';
 const db=window.supabase.createClient(url,key);let me=null,blocked=new Set(),admin=false;
 const $=id=>document.getElementById(id);
