@@ -838,7 +838,7 @@ for(const r of reports){
   for(const entry of data){
    const p=document.createElement('p');p.style.margin='7px 0';
    const label=({warning:'경고','1day':'1일 정지','3days':'3일 정지','7days':'7일 정지','30days':'30일 정지',permanent:'영구 정지'}[entry.action]||entry.action);
-   p.textContent=new Date(entry.acted_at).toLocaleString('ko-KR')+' · '+label+' · '+entry.admin_name+'\\n사유: '+entry.reason+(entry.revoked_at?'\\n해제: '+new Date(entry.revoked_at).toLocaleString('ko-KR'):'')+(entry.ends_at?'\\n종료 예정: '+new Date(entry.ends_at).toLocaleString('ko-KR'):'');
+   p.textContent=new Date(entry.acted_at).toLocaleString('ko-KR')+' · '+label+' · '+entry.admin_name+String.fromCharCode(10)+'사유: '+entry.reason+(entry.revoked_at?String.fromCharCode(10)+'해제: '+new Date(entry.revoked_at).toLocaleString('ko-KR'):'')+(entry.ends_at?String.fromCharCode(10)+'종료 예정: '+new Date(entry.ends_at).toLocaleString('ko-KR'):'');
    historyBox.append(p);
   }
  };
