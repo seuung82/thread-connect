@@ -797,6 +797,21 @@ for(const r of reports){
  const info=document.createElement('p');info.style.overflowWrap='anywhere';
  info.textContent='신고 대상: '+memberLabel(r.reported_id)+' / 신고자: '+memberLabel(r.reporter_id)+'\n'+(r.details||'')+'\n'+new Date(r.created_at).toLocaleString('ko-KR');
  row.append(title,info);
+ const sanctionSelect=document.createElement('select');
+ for(const [value,label] of [['warning','경고'],['temporary:1','1일 정지'],['temporary:3','3일 정지'],['temporary:7','7일 정지'],['temporary:30','30일 정지'],['permanent','영구 정지'],['revoke','정지 해제']]){const o=document.createElement('option');o.value=value;o.textContent=label;sanctionSelect.append(o)}
+ const sanctionButton=document.createElement('button');sanctionButton.textContent='제재 적용';
+ sanctionButton.onclick=async()=>{
+ const selected=sanctionSelect.value,action=selected.startsWith('temporary:')?'temporary':selected,days=action==='temporary'?Number(selected.split(':')[1]):null;
+ const reason=window.prompt('제재 사유를 입력해 줘 (2~500자)',r.reason);
+ if(reason===null)return;
+ if(reason.trim().length<2||reason.length>500){alert('제재 사유를 2~500자로 입력해 줘.');return}
+ if(!confirm(memberLabel(r.reported_id)+' 회원에게 '+sanctionSelect.options[sanctionSelect.selectedIndex].text+' 조치를 적용할까?'))return;
+ sanctionButton.disabled=true;
+ const {error}=await db.rpc('tc_manage_member_sanction',{p_user_id:r.reported_id,p_action:action,p_reason:reason.trim(),p_days:days});
+ sanctionButton.disabled=false;
+ if(error)alert('제재 실패: '+error.message);else{alert('제재 처리 완료');await drawReports()}
+ };
+ row.append(sanctionSelect,sanctionButton);
  for(const [status,label] of [['reviewed','처리 완료'],['dismissed','기각'],['pending','대기']]){
   const btn=document.createElement('button');btn.textContent=label;btn.disabled=r.status===status;
   btn.onclick=async()=>{const {error}=await db.from('member_reports').update({status}).eq('id',r.id);if(error)say('처리 실패: '+error.message);else await drawReports()};
