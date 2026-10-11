@@ -797,6 +797,19 @@ for(const r of reports){
  const info=document.createElement('p');info.style.overflowWrap='anywhere';
  info.textContent='신고 대상: '+memberLabel(r.reported_id)+' / 신고자: '+memberLabel(r.reporter_id)+'\n'+(r.details||'')+'\n'+new Date(r.created_at).toLocaleString('ko-KR');
  row.append(title,info);
+ const sanctionState=document.createElement('p');sanctionState.style.cssText='color:#dfc5ef;font-size:13px;margin:9px 0;white-space:pre-wrap';sanctionState.textContent='제재 기록 확인 중...';row.append(sanctionState);
+ const showSanctionState=async()=>{
+  const {data,error}=await db.rpc('tc_admin_member_sanction_summary',{p_user_id:r.reported_id});
+  if(error){sanctionState.textContent='제재 기록 조회 실패: '+error.message;return;}
+  const item=(data||[])[0];
+  if(!item){sanctionState.textContent='제재 기록을 조회할 권한이 없어.';return;}
+  const count=Number(item.warning_count||0);
+  const warning='경고 '+count+'회'+(item.last_warning_at?' · 최근 '+new Date(item.last_warning_at).toLocaleDateString('ko-KR'):'');
+  const type=item.suspension_type;
+  const status=type==='permanent'?'현재 상태: 영구 정지 중':type?'현재 상태: 일시 정지 중 · '+new Date(item.ends_at).toLocaleString('ko-KR')+' 종료 예정':'현재 상태: 정지 없음';
+  sanctionState.textContent=warning+'\\n'+status;
+ };
+ showSanctionState();
  const sanctionSelect=document.createElement('select');
  for(const [value,label] of [['warning','경고'],['temporary:1','1일 정지'],['temporary:3','3일 정지'],['temporary:7','7일 정지'],['temporary:30','30일 정지'],['permanent','영구 정지'],['revoke','정지 해제']]){const o=document.createElement('option');o.value=value;o.textContent=label;sanctionSelect.append(o)}
  const sanctionButton=document.createElement('button');sanctionButton.textContent='제재 적용';
