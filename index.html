@@ -875,7 +875,7 @@ async function check(target){const {data,error}=await db.rpc('get_member_suspens
 async function updateNotice(){if(!uid)return;
  try{const {data,error}=await db.rpc('tc_my_warnings');if(error)throw error;
  const warnings=data||[];warningNotice.hidden=!warnings.length;
- if(warnings.length)warningNotice.textContent='⚠️ 운영자 경고 '+warnings.length+'건 (최근 20건)\\n'+warnings.slice(0,5).map(w=>new Date(w.created_at).toLocaleDateString('ko-KR')+' · '+w.reason).join('\\n');
+ if(warnings.length)warningNotice.textContent='⚠️ 운영자 경고 '+warnings.length+'건 (최근 20건)'+String.fromCharCode(10)+warnings.slice(0,5).map(w=>new Date(w.created_at).toLocaleDateString('ko-KR')+' · '+w.reason).join(String.fromCharCode(10));
  }catch(e){console.warn('경고 안내 조회 실패',e)}
  try{const r=await check(uid);notice.hidden=!r;if(r)notice.textContent='⛔ 이용 정지 중\n'+(r.suspension_type==='permanent'?'영구 정지':({'1day':'1일 정지','3days':'3일 정지','7days':'7일 정지','30days':'30일 정지'}[r.suspension_type]||'일시 정지'))+'\n사유: '+r.reason+'\n'+(r.ends_at?'종료 예정: '+new Date(r.ends_at).toLocaleString('ko-KR'):'운영자가 해제할 때까지 유지됩니다.')+'\n정지 기간에는 채팅·호감·모임 신청·개설이 제한됩니다.';}catch(e){console.warn('정지 안내 조회 실패',e)}}
 async function searchMembers(){
