@@ -307,32 +307,36 @@ let selectedGender='전체',genderAvailable=false; let selectedAge='전체';
 const tcProvinces=['서울특별시','부산광역시','대구광역시','인천광역시','광주광역시','대전광역시','울산광역시','세종특별자치시','경기도','강원특별자치도','충청북도','충청남도','전북특별자치도','전라남도','경상북도','경상남도','제주특별자치도'];
 const tcRegionSido=by('tc-region-sido'),tcRegionSigungu=by('tc-region-sigungu'),tcRegionDong=by('tc-region-dong');
 for(const sido of tcProvinces){const opt=document.createElement('option');opt.value=sido;opt.textContent=sido;tcRegionSido.append(opt)}
-function tcRefreshDistricts(){
- const previous=tcRegionSigungu.value;
- tcRegionSigungu.replaceChildren();
- const all=document.createElement('option');all.value='';all.textContent='시·군·구 전체';tcRegionSigungu.append(all);
- const province=tcRegionSido.value;
- const districts=[...new Set(directoryRows.filter(p=>p.region_sido===province).map(p=>String(p.region_sigungu||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
- for(const district of districts){const opt=document.createElement('option');opt.value=district;opt.textContent=district;tcRegionSigungu.append(opt)}
- tcRegionSigungu.disabled=!province||!districts.length;
- if(districts.includes(previous))tcRegionSigungu.value=previous;
-}
-function tcRefreshDong(){
- const previous=tcRegionDong.value;
- tcRegionDong.replaceChildren();
- const all=document.createElement('option');all.value='';all.textContent='전체 동네 (선택 안 함)';tcRegionDong.append(all);
+let tcDirectoryRequestVersion=0,tcRegionRequestVersion=0,tcDirectorySearchTimer=null;
+async function tcLoadRegionOptions(){
+ if(!client||!currentUserId)return;
+ const version=++tcRegionRequestVersion;
  const sido=tcRegionSido.value,sigungu=tcRegionSigungu.value;
- const dongs=[...new Set(directoryRows.filter(p=>sido&&sigungu&&p.region_sido===sido&&p.region_sigungu===sigungu).map(p=>String(p.region_eupmyeondong||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
- for(const dong of dongs){const opt=document.createElement('option');opt.value=dong;opt.textContent=dong;tcRegionDong.append(opt)}
- tcRegionDong.disabled=!sido||!sigungu||!dongs.length;
- if(dongs.includes(previous))tcRegionDong.value=previous;
+ const {data,error}=await client.rpc('tc_member_region_options',{p_sido:sido||null,p_sigungu:null});
+ if(version!==tcRegionRequestVersion)return;
+ if(error){console.warn('지역 선택 목록 조회 실패',error);return}
+ const districts=[...new Set((data||[]).map(x=>x.region_sigungu).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
+ tcRegionSigungu.replaceChildren(new Option('시·군·구 전체',''));
+ for(const district of districts)tcRegionSigungu.add(new Option(district,district));
+ if(districts.includes(sigungu))tcRegionSigungu.value=sigungu;
+ tcRegionSigungu.disabled=!sido||!districts.length;
+ tcRefreshDong(data||[]);
 }
-tcRegionSido.addEventListener('change',()=>{tcRegionSigungu.value='';tcRegionDong.value='';tcRefreshDistricts();tcRefreshDong();drawDirectory()});
-tcRegionSigungu.addEventListener('change',()=>{tcRegionDong.value='';tcRefreshDong();drawDirectory()});
-tcRegionDong.addEventListener('change',drawDirectory);
-
-for(const button of document.querySelectorAll('#tc-gender-filter [data-gender]'))button.addEventListener('click',()=>{selectedGender=button.dataset.gender;for(const b of document.querySelectorAll('#tc-gender-filter [data-gender]')){const on=b===button;b.classList.toggle('selected',on);b.setAttribute('aria-pressed',String(on))}drawDirectory()});
-for(const button of document.querySelectorAll('#tc-age-filter [data-age]'))button.addEventListener('click',()=>{selectedAge=button.dataset.age;for(const b of document.querySelectorAll('#tc-age-filter [data-age]')){const on=b===button;b.classList.toggle('selected',on);b.setAttribute('aria-pressed',String(on))}drawDirectory()}); function setTab(tab){for(const name of ['home','dating','meetup','profile']){by('tc-'+name).hidden=name!==tab;const b=document.querySelector('[data-tc-tab="'+name+'"]');b.classList.toggle('active',name===tab);b.setAttribute('aria-pressed',String(name===tab))}}
+function tcRefreshDistricts(){return tcLoadRegionOptions()}
+function tcRefreshDong(options){
+ const previous=tcRegionDong.value;
+ const sido=tcRegionSido.value,sigungu=tcRegionSigungu.value;
+ const dongs=[...new Set((options||[]).filter(x=>sido&&sigungu&&x.region_sigungu===sigungu).map(x=>x.region_eupmyeondong).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
+ tcRegionDong.replaceChildren(new Option('전체 동네 (선택 안 함)',''));
+ for(const dong of dongs)tcRegionDong.add(new Option(dong,dong));
+ if(dongs.includes(previous))tcRegionDong.value=previous;
+ tcRegionDong.disabled=!sido||!sigungu||!dongs.length;
+}
+tcRegionSido.addEventListener('change',async()=>{tcRegionSigungu.value='';tcRegionDong.value='';await tcLoadRegionOptions();await refreshDirectory()});
+tcRegionSigungu.addEventListener('change',async()=>{tcRegionDong.value='';await tcLoadRegionOptions();await refreshDirectory()});
+tcRegionDong.addEventListener('change',refreshDirectory);
+for(const button of document.querySelectorAll('#tc-gender-filter [data-gender]'))button.addEventListener('click',()=>{selectedGender=button.dataset.gender;for(const b of document.querySelectorAll('#tc-gender-filter [data-gender]')){const on=b===button;b.classList.toggle('selected',on);b.setAttribute('aria-pressed',String(on))}refreshDirectory()});
+for(const button of document.querySelectorAll('#tc-age-filter [data-age]'))button.addEventListener('click',()=>{selectedAge=button.dataset.age;for(const b of document.querySelectorAll('#tc-age-filter [data-age]')){const on=b===button;b.classList.toggle('selected',on);b.setAttribute('aria-pressed',String(on))}refreshDirectory()}); function setTab(tab){for(const name of ['home','dating','meetup','profile']){by('tc-'+name).hidden=name!==tab;const b=document.querySelector('[data-tc-tab="'+name+'"]');b.classList.toggle('active',name===tab);b.setAttribute('aria-pressed',String(name===tab))}}
 for(const b of document.querySelectorAll('[data-tc-tab]'))b.onclick=()=>setTab(b.dataset.tcTab);
  function drawMatches(){
   const root=by('tc-matches');root.replaceChildren();
@@ -349,7 +353,7 @@ for(const b of document.querySelectorAll('[data-tc-tab]'))b.onclick=()=>setTab(b
 function drawDirectory(){
  const root=by('auth-directory-result'),q=value('auth-directory-search').toLowerCase();
  root.replaceChildren();
- const matches=directoryRows.filter(p=>!window.tcSafety?.isBlocked(p.id)&&(!tcRegionSido.value||p.region_sido===tcRegionSido.value)&&(!tcRegionSigungu.value||p.region_sigungu===tcRegionSigungu.value)&&(!tcRegionDong.value||p.region_eupmyeondong===tcRegionDong.value)&&(selectedGender==='전체'||(genderAvailable&&safeText(p.gender).trim().toLowerCase()===({'남성':'male','여성':'female'}[selectedGender]||selectedGender)))&&(selectedAge==='전체'||(Number.isInteger(Number(p.birth_year))&&Number(p.birth_year)>=1900&&Number(p.birth_year)<=new Date().getFullYear()&&(()=>{const age=new Date().getFullYear()-Number(p.birth_year);return selectedAge==='50'?age>=50:age>=Number(selectedAge)&&age<Number(selectedAge)+10})()))&&[p.display_name,p.threads_handle,p.region_sido,p.region_sigungu,...(p.interests||[])].some(s=>safeText(s).toLowerCase().includes(q)));
+ const matches=directoryRows.filter(p=>!window.tcSafety?.isBlocked(p.id));
  const genderNote=by('tc-gender-note');genderNote.textContent=!genderAvailable?'현재 회원 목록에 성별 정보가 제공되지 않아. 전체 목록은 볼 수 있지만 남성·여성 필터를 사용하려면 DB 설정이 필요해.':selectedGender==='전체'?'성별 미설정 회원도 포함해 표시해.':'';
  const count=document.createElement('p');count.textContent='검색 결과 '+matches.length+'명';root.append(count);
  for(const p of matches){
@@ -367,12 +371,21 @@ function drawDirectory(){
   if(actions.childNodes.length)card.append(actions);
   root.append(card)}
 }
-async function refreshDirectory(){if(!client)return;const root=by('auth-directory-result');root.textContent='회원 목록 불러오는 중...';
- const columns='id,display_name,threads_handle,mbti,interests,region_sido,region_sigungu,region_eupmyeondong,bio,birth_year';
- let {data,error}=await client.from('member_directory').select(columns+',gender').order('display_name').limit(100);
- genderAvailable=!error;
- if(error){const fallback=await client.from('member_directory').select(columns).order('display_name').limit(100);data=fallback.data;error=fallback.error}
- if(error){root.textContent='회원 목록 조회 실패: '+friendly(error);return}directoryRows=data||[];tcRefreshDistricts();tcRefreshDong();await refreshLikes();drawDirectory()}
+async function refreshDirectory(){
+ if(!client||!currentUserId)return;
+ const version=++tcDirectoryRequestVersion;
+ const root=by('auth-directory-result');root.textContent='회원 목록 불러오는 중...';
+ const gender=selectedGender==='전체'?null:({'남성':'male','여성':'female'}[selectedGender]||selectedGender);
+ const {data,error}=await client.rpc('tc_search_member_directory',{
+  p_sido:tcRegionSido.value||null,p_sigungu:tcRegionSigungu.value||null,
+  p_dong:tcRegionDong.value||null,p_gender:gender,p_age_group:selectedAge==='전체'?null:selectedAge,
+  p_keyword:value('auth-directory-search')||null,p_limit:100
+ });
+ if(version!==tcDirectoryRequestVersion)return;
+ if(error){root.textContent='회원 목록 조회 실패: '+friendly(error);return}
+ genderAvailable=true;directoryRows=data||[];
+ await refreshLikes();if(version!==tcDirectoryRequestVersion)return;drawDirectory();
+}
 async function refreshLikes(){
  if(!client||!currentUserId)return;
  const [likes,matches]=await Promise.all([
@@ -395,7 +408,7 @@ async function toggleLike(id,button){
  await refreshLikes();drawDirectory();
  msg(already?'호감을 취소했어.':mutualMatches.has(id)?'💜 서로 호감이 일치했어!':'호감을 보냈어. 상대방에게는 아직 네 이름이 공개되지 않아.');
 }
-by('auth-directory-search').addEventListener('input',drawDirectory);
+by('auth-directory-search').addEventListener('input',()=>{clearTimeout(tcDirectorySearchTimer);tcDirectorySearchTimer=setTimeout(refreshDirectory,250)});
 by('auth-directory-refresh').onclick=refreshDirectory;
 
 function friendly(e){return e&&e.message?e.message:String(e)}
@@ -414,7 +427,7 @@ function tcProfileView(data){
 }
 by('tc-profile-edit-toggle').onclick=()=>{by('tc-profile-editor').hidden=false;by('tc-profile-summary').hidden=true;};
 by('tc-profile-edit-cancel').onclick=()=>{by('tc-profile-editor').hidden=true;by('tc-profile-summary').hidden=false;};
-async function sync(){if(!client)return;try{const {data,error}=await client.auth.getUser();if(error)throw error;const u=data.user;currentUserId=u?.id||null;if(!u){tcProfileView(null);sentLikes=new Set();mutualMatches=new Set();directoryRows=[];by('tc-matches').replaceChildren();by('auth-directory-result').replaceChildren()}by('auth-logged-out').hidden=!!u;by('auth-logged-in').hidden=!u;if(u){by('auth-user').textContent='로그인: '+u.email;await loadProfile(u.id);await window.tcSafety?.refresh();await refreshDirectory()}}catch(e){msg(friendly(e))}}
+async function sync(){if(!client)return;try{const {data,error}=await client.auth.getUser();if(error)throw error;const u=data.user;currentUserId=u?.id||null;if(!u){tcProfileView(null);sentLikes=new Set();mutualMatches=new Set();directoryRows=[];by('tc-matches').replaceChildren();by('auth-directory-result').replaceChildren()}by('auth-logged-out').hidden=!!u;by('auth-logged-in').hidden=!u;if(u){by('auth-user').textContent='로그인: '+u.email;await loadProfile(u.id);await window.tcSafety?.refresh();await tcLoadRegionOptions();await refreshDirectory()}}catch(e){msg(friendly(e))}}
 async function loadProfile(id){const {data,error}=await client.from('profiles').select('*').eq('id',id).maybeSingle();if(error){msg('프로필 불러오기: '+friendly(error));return}if(!data){tcProfileView(null);by('auth-handle').value=(client.auth&&currentUserId?((await client.auth.getUser()).data?.user?.user_metadata?.threads_handle||''):'');return}tcProfileView(data);const pairs={'auth-name':'display_name','auth-handle':'threads_handle','auth-birth':'birth_year','auth-gender':'gender','auth-mbti':'mbti','auth-sido':'region_sido','auth-sigungu':'region_sigungu','auth-dong':'region_eupmyeondong','auth-bio':'bio'};for(const [id,col] of Object.entries(pairs))by(id).value=data[col]??'';by('auth-interests').value=(data.interests||[]).join(', ');by('auth-show-dong').checked=!!data.show_neighborhood;if(!by('auth-handle').value){const {data:meta}=await client.auth.getUser();by('auth-handle').value=meta?.user?.user_metadata?.threads_handle||''}}
 by('auth-signup').onclick=async()=>{if(!client)return;const handle=value('tc-signup-threads').trim().replace(/^@/,'');if(!/^[A-Za-z0-9._]{1,30}$/.test(handle)){msg('Threads 아이디를 입력해 줘. 영문·숫자·점(.)·밑줄(_)만 사용할 수 있어.');by('tc-signup-threads').focus();return}if(!value('auth-email')||by('auth-password').value.length<6){msg('이메일과 6자 이상 비밀번호를 입력해 줘.');return}msg('가입 요청 중...');const {error}=await client.auth.signUp({email:value('auth-email'),password:by('auth-password').value,options:{emailRedirectTo:location.origin+location.pathname,data:{threads_handle:handle}}});msg(error?friendly(error):'가입 요청을 보냈어. 이메일에서 인증 링크를 확인해 줘. 로그인 후 마이페이지에서 프로필을 완성해 줘.')};
 by('auth-login').onclick=async()=>{if(!client)return;const {error}=await client.auth.signInWithPassword({email:value('auth-email'),password:by('auth-password').value});msg(error?friendly(error):'로그인했어.');if(!error)await sync()};
