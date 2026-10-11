@@ -736,10 +736,33 @@ const {error}=await db.from('member_blocks').insert({blocker_id:me,blocked_id:id
 async function unblock(id){if(!me)return;const {error}=await db.from('member_blocks').delete().eq('blocker_id',me).eq('blocked_id',id);if(error){say('차단 해제 실패: '+error.message);return}blocked.delete(id);await drawSettings();$('auth-directory-refresh')?.click();say('차단을 해제했어.')}
 const settings=document.createElement('div');settings.id='tc-safety-settings';settings.innerHTML='<h3>🛡️ 신고·차단 관리</h3><div id="tc-safety-blocks">차단 회원 없음</div><div id="tc-safety-admin" hidden><h3>👑 운영자 신고 관리</h3><div id="tc-safety-reports"></div></div>';
 $('tc-profile')?.append(settings);
-async function drawSettings(){if(!me)return;const root=$('tc-safety-blocks');root.replaceChildren();const ids=[...blocked];if(!ids.length)root.textContent='차단한 회원이 없어.';
-let names=new Map();if(ids.length){const {data}=await db.from('member_directory').select('id,display_name').in('id',ids);names=new Map((data||[]).map(x=>[x.id,x.display_name]));}
-for(const id of ids){const row=document.createElement('div');row.className='entry';const label=document.createElement('span');label.textContent=safeName(names.get(id))+' ';const btn=document.createElement('button');btn.textContent='차단 해제';btn.onclick=()=>unblock(id);row.append(label,btn);root.append(row)}
-$('tc-safety-admin').hidden=!admin;if(admin)await drawReports();}
+let safetySettingsRenderVersion=0;
+async function drawSettings(){
+if(!me)return;
+const version=++safetySettingsRenderVersion;
+const currentUser=me;
+const ids=[...blocked];
+let names=new Map();
+if(ids.length){
+ const {data,error}=await db.from('member_directory').select('id,display_name').in('id',ids);
+ if(error)console.warn('차단 회원 이름 조회 실패',error);
+ names=new Map((data||[]).map(x=>[x.id,x.display_name]));
+}
+if(version!==safetySettingsRenderVersion||currentUser!==me)return;
+const root=$('tc-safety-blocks');
+if(!root)return;
+const fragment=document.createDocumentFragment();
+if(!ids.length)fragment.append(document.createTextNode('차단한 회원이 없어.'));
+for(const id of ids){
+ const row=document.createElement('div');row.className='entry';
+ const label=document.createElement('span');label.textContent=safeName(names.get(id))+' ';
+ const btn=document.createElement('button');btn.textContent='차단 해제';btn.onclick=()=>unblock(id);
+ row.append(label,btn);fragment.append(row);
+}
+root.replaceChildren(fragment);
+$('tc-safety-admin').hidden=!admin;
+if(admin)await drawReports();
+}
 async function drawReports(){const root=$('tc-safety-reports');root.textContent='신고 목록 불러오는 중...';const {data,error}=await db.from('member_reports').select('id,reporter_id,reported_id,reason,details,status,created_at').order('created_at',{ascending:false}).limit(100);if(error){root.textContent='신고 조회 실패: '+error.message;return}root.replaceChildren();if(!data.length)root.textContent='접수된 신고가 없어.';
 for(const r of data){const row=document.createElement('div');row.className='entry';const title=document.createElement('strong');title.textContent=r.reason+' · '+r.status;const info=document.createElement('p');info.style.overflowWrap='anywhere';info.textContent='신고 대상: '+r.reported_id+' / 신고자: '+r.reporter_id+'\n'+(r.details||'')+'\n'+new Date(r.created_at).toLocaleString('ko-KR');row.append(title,info);for(const [status,label] of [['reviewed','처리 완료'],['dismissed','기각'],['pending','대기']]){const b=document.createElement('button');b.textContent=label;b.disabled=r.status===status;b.onclick=async()=>{const {error}=await db.from('member_reports').update({status}).eq('id',r.id);if(error)say('처리 실패: '+error.message);else await drawReports()};row.append(b)}root.append(row)}}
 window.tcSafety={refresh,isBlocked,report,block,unblock};
