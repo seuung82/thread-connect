@@ -259,7 +259,7 @@ body.tc-chat-fullscreen{overflow:hidden!important}
 #auth-app .tc-home-link-card>.tc-home-copy~strong,#auth-app .tc-home-link-card>.tc-home-copy~p{display:none!important}
 </style><style id="tc-dating-two-views">
 #auth-app .tc-dating-switch{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0 20px;padding:5px;border:1px solid #493850;border-radius:16px;background:#1b1722}
-#auth-app .tc-dating-switch button{margin:0;padding:13px 5px;border-radius:12px;border:0;background:transparent;color:#cbbcd5;font-size:13px;font-weight:800}
+#auth-app .tc-dating-switch button{margin:0;padding:13px 5px;border-radius:12px;border:0;background:transparent;color:#cbbcd5;font-size:16px;font-weight:800}
 #auth-app .tc-dating-switch button.tc-switch-active{background:#e9d0fa;color:#2a1737}
 #auth-app #tc-dating-match-area[hidden],#auth-app #tc-dating-search-area[hidden]{display:none!important}
 </style>
@@ -374,7 +374,9 @@ function drawDirectory(){
 async function refreshDirectory(){
  if(!client||!currentUserId)return;
  const version=++tcDirectoryRequestVersion;
- const root=by('auth-directory-result');root.textContent='회원 목록 불러오는 중...';
+ const root=by('auth-directory-result');
+ if(!tcRegionSido.value){directoryRows=[];root.textContent='지역을 선택하면 해당 지역 회원을 확인할 수 있어.';return;}
+ root.textContent='회원 목록 불러오는 중...';
  const gender=selectedGender==='전체'?null:({'남성':'male','여성':'female'}[selectedGender]||selectedGender);
  const {data,error}=await client.rpc('tc_search_member_directory',{
   p_sido:tcRegionSido.value||null,p_sigungu:tcRegionSigungu.value||null,
