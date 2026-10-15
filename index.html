@@ -411,7 +411,22 @@ async function toggleLike(id,button){
 by('auth-directory-search').addEventListener('input',()=>{clearTimeout(tcDirectorySearchTimer);tcDirectorySearchTimer=setTimeout(refreshDirectory,250)});
 by('auth-directory-refresh').onclick=refreshDirectory;
 
-function friendly(e){return e&&e.message?e.message:String(e)}
+function friendly(e){
+ const raw=String(e?.message||e||'').trim();
+ const map=[
+ [/invalid login credentials/i,'이메일 또는 비밀번호가 올바르지 않아. 다시 확인해 줘.'],
+ [/email not confirmed/i,'이메일 인증이 아직 완료되지 않았어. 메일함에서 인증 링크를 확인해 줘.'],
+ [/user already registered|already been registered/i,'이미 가입된 이메일이야. 로그인하거나 비밀번호를 재설정해 줘.'],
+ [/password should be at least|password.*at least/i,'비밀번호는 6자 이상으로 입력해 줘.'],
+ [/invalid email/i,'올바른 이메일 주소를 입력해 줘.'],
+ [/signup is disabled/i,'현재 신규 회원가입이 중단되어 있어.'],
+ [/email rate limit exceeded|rate limit exceeded|too many requests/i,'요청이 너무 많아. 잠시 후 다시 시도해 줘.'],
+ [/auth session missing|session missing/i,'로그인이 필요해. 다시 로그인해 줘.'],
+ [/network|failed to fetch/i,'인터넷 연결을 확인한 뒤 다시 시도해 줘.']
+ ];
+ for(const [pattern,korean] of map){if(pattern.test(raw))return korean;}
+ return raw||'오류가 발생했어. 잠시 후 다시 시도해 줘.';
+}
 let tcProfileHasSaved=false;
 function tcProfileView(data){
   const saved=!!(data&&data.display_name&&data.threads_handle);
